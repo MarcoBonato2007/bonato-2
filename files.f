@@ -1,2 +1,2 @@
-and_gate.sv
-hello.sv
+testing/and_gate.sv
+testing/hello.sv
