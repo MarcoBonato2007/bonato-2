@@ -1,4 +1,5 @@
 // use the funct3 codes, and a modifier bit for sub/arithmetic right shifts
+// May move the shifting to a separate component later
 
 module alu (
     input logic [31:0] a,
