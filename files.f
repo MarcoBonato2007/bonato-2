@@ -3,3 +3,4 @@ testing/hello.sv
 alu.sv
 regfile.sv
 pc.sv
+ram.sv
