@@ -1,14 +1,13 @@
-This section contains general notes to myself.
+# Notes from the manuals
 
-Keep the shifter inside the ALU, but have a hardcoded shift by 12 circuit
-And then add the zero register to that
-Have the write data to the register file be multiplexed between PC+4, alu output and memory output
-Have the write data to the pc be multiplexed between alu output and PC+4
-Implement FENCE as a NOP (for now... may change on a multi-cycle or multi-core cpu)
-Need to make sure that all machine instructions are supported (the ones that should be)
-Test your implementation with the official repo
-
-# Notes from unprivileged manual
+## Implementation ideas / notes to myself
+- Keep the shifter inside the ALU, but have a hardcoded shift by 12 circuit
+- And then add the zero register to that
+- Have the write data to the register file be multiplexed between PC+4, alu output and memory output
+- Have the write data to the pc be multiplexed between alu output and PC+4
+- Implement FENCE as a NOP (for now... may change on a multi-cycle or multi-core cpu)
+- Need to make sure that all machine instructions are supported (the ones that should be)
+- Test your implementation with the official repo
 
 ## Registers
 - There are 32 registers, each 32 bits, called x0-x31. `x0` is the the zero register, and is always zero. x1-x32 are general purpose.
@@ -48,29 +47,38 @@ Test your implementation with the official repo
 - Immediate arithmetic (e.g. `ANDI`): `0010011`
 - Register arithmetic (e.g. `AND`): `0110011`
 - `FENCE`, `PAUSE`: `0001111`
-- `ECALL`, `BREAK`: `1110011`
+- `ECALL`, `BREAK`, `CSRRW(I)`, `CSRRS(I)`, `CSRRC(I)`, `MRET`, `WFI`: `1110011` (system opcode)
 
 ### funct3
 - Branch/load/store instructions: `funct3` helps to uniquely identify the type of instruction (e.g. differentiating `BLT` and `BGE`)
 - Arithmetic instructions: `funct3` is the same for the same types of operations: e.g. `funct3` is `111` for `AND` and `ANDI`. Note that `ADD` and `SUB` are considered the same type too.
 
 ### funct7
-- For the base ISA, only bit 30 can be non-zero. Bit 30 is 1 for arithmetic right shifts or subtraction, and 0 otherwise.
+- For the base ISA (looking at the base arithmetic/logic/branching instructions), only bit 30 can be non-zero. Bit 30 is 1 for arithmetic right shifts or subtraction, and 0 otherwise.
 
 # Notes from privileged manual
 
-I want to implement the base RV32I instruction set, where the CPU is always in machine mode, and the CPU is single cycle and single core. 
+I want to implement the RV32I instruction set + Zicsr, where the processor is always in machine mode, and is single cycle (I will maybe change it to be two cycles, fetch/decode and execute).
 
-## Zicsr extension
+## Extra instructions (Zicsr, machine level ISA, ecall, ebreak)
 
-I need to have a look at this and make some notes, I need to implement it. I can also then choose to implement things like hardware timers.
+I want to implement the Zicsr extension, with the CPU always running in machine mode. That introduces the following instructions (along with the standard ECALL and EBREAK):
+- CSRRW(I): reads the old value of the csr, zero extends it, writes it to rd, then writes rs1 to the csr. If rd=x0 then the csr shouldn't be read, but still written to.
+- CSRRS(I): reads the old value of the csr, zero extends it, writes it to rd, then any high bit in rs1 causes the corresponding bit in the csr to be set (if that bit is writeable). So basically you or mask with rs1.
+- CSRRC(I): like CSRRS, but clears instead of sets bits at positions where rs1 is 1.
+- In CSRRS/CSRRC, if rs1 is x0 then the csr is not written to. So this is the way to read a csr without any writes. Similarly, in the immediate versions, if uimm=0 then the csr is not written to.
+- WFI: Can start by implementing this as a NOP. Change if implementing timers or other interrupts.
+- MRET: Exits a trap. Sets pc to mepc, mstatus.MIE is set to mstatus.MPIE, then mstatus.MPIE is set to 1.
+- ECALL: Set mepc to the current pc (NOT pc + 4). Write code 11 (environment call from m-mode) to mcause, and set its interrupt bit to 0. Set mtval to 0. Set mstatus.MPIE to mstatus.MIE, and then set mstatus.MIE to 0. Set pc to mtvec.BASE (can only use direct mode). 
+- EBREAK: Set mepc to the current pc (NOT pc + 4). Write code 3 (environment call from m-mode) to mcause, and set its interrupt bit to 0. Set mtval to 0 (or the current pc). Set mstatus.MPIE to mstatus.MIE, and then set mstatus.MIE to 0. Set pc to mtvec.BASE (can only use direct mode). 
 
-## Ecall and ebreak
+For instructions like ecall and ebreak, make sure that some behaviours are suppressed: e.g. minstret is not incremented, mie is unchanged, etc. (in future: find a list of suppressed behavior)
 
-- When ecall is executed, it generates an environment-call-from-M-mode exception (11), respectively, and performs no other operation.
-- When ebreak is called, it raises a breakpoint exception and performs no other operation.
-- Both cause mepc to be set to the address of the ecall or ebreak instruction itself (NOT the address of the following instruction).
-- On a breakpoint exception raised by EBREAK, mtval/stval is written with either zero or the virtual address of the instruction (what's a virtual address?)
+## Machine CSR's
+TODO: make a list of the CSR's, how they're laid out, what they do, etc.
+- ...
+- Attempting to access any other CSR should raise an exception (which one?)
+
 
 # Commands
 
@@ -105,3 +113,4 @@ write_json and_gate.json
 `
 
 `netlistsvg and_gate.json -o and_gate.svg`
+
