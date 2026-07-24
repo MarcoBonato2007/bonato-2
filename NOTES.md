@@ -1,3 +1,5 @@
+I want to implement the RV32I instruction set + Zicsr, where the processor is always in machine mode, and is single cycle (I will maybe change it to be two cycles, fetch/decode and execute).
+
 # Notes from the manuals
 
 ## Implementation ideas / notes to myself
@@ -56,9 +58,6 @@
 ### funct7
 - For the base ISA (looking at the base arithmetic/logic/branching instructions), only bit 30 can be non-zero. Bit 30 is 1 for arithmetic right shifts or subtraction, and 0 otherwise.
 
-# Notes from privileged manual
-
-I want to implement the RV32I instruction set + Zicsr, where the processor is always in machine mode, and is single cycle (I will maybe change it to be two cycles, fetch/decode and execute).
 
 ## Extra instructions (Zicsr, machine level ISA, ecall, ebreak)
 
@@ -74,10 +73,31 @@ I want to implement the Zicsr extension, with the CPU always running in machine 
 
 For instructions like ecall and ebreak, make sure that some behaviours are suppressed: e.g. minstret is not incremented, mie is unchanged, etc. (in future: find a list of suppressed behavior)
 
-## Machine CSR's
-TODO: make a list of the CSR's, how they're laid out, what they do, etc.
-- ...
-- Attempting to access any other CSR should raise an exception (which one?)
+## CSR's (machine only)
+There's a 12 bit encoding space for CSR's. The top two bits indicate whether the register is read/write (00, 01 or 10) or read-only (11).  
+
+- misa: identifies the ISA used. 
+    * MXL field = 1 (read-only, top two bits)
+    * Extension field has a 1 in position 8 ("I") and nowhere else. 
+    * Because of this implementation, misa is essentially read-only, but silently ignores writes (without raising an exception).
+- mvendorid: set to 0 (non-commercial implementation), read-only
+- marchid: set to 0, read-only
+- mimpid: essentially a version control number, can set to 1.0.0 initially, read-only. The format/layout can be decided freely.
+- mhartid: set to 0 (there's only one core/thread)
+- mstatus(h): Encodes the hart's current operating state. mstatush is the upper 32 bits. 
+    * SIE/SPIE/MPRV/MXR/SUM/SBE/UBE/TVM/TW/TSR/FS/VS/XS/SD fields should be read-only 0.
+    * The MIE field is interrupt enable (1) / disable (0). 
+    * The MPIE field holds the value of MIE prior to a trap
+    * MPP holds the previous privilege mode (hardcoded to M, ignore writes). Other xPP fields are read-only 0. 
+    * SXL/UXL fields don't exist
+    * MBE field should be hardcoded to 0 (little endian) and ignore writes
+    * SPELP/MPELP fields should be hardcoded to 0 and ignore writes
+- mtvec: holds trap vector configuration. 
+    * The BASE field must be 4-byte aligned (note that the CSR doesn't contain the last two bits of BASE, those are zero filled when using BASE as an address)
+    * The MODE field is hardcoded to 0 and ignores writes
+    
+
+Attempting to access any other CSR should raise an illegal instruction exception.
 
 
 # Commands
