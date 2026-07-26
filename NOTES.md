@@ -2,6 +2,8 @@ I want to implement the RV32I instruction set + Zicsr, where the processor is al
 
 # Notes from the manuals
 
+This is going to take a while...
+
 ## Implementation ideas / notes to myself
 - Keep the shifter inside the ALU, but have a hardcoded shift by 12 circuit
 - And then add the zero register to that
@@ -73,7 +75,9 @@ I want to implement the Zicsr extension, with the CPU always running in machine 
 
 For instructions like ecall and ebreak, make sure that some behaviours are suppressed: e.g. minstret is not incremented, mie is unchanged, etc. (in future: find a list of suppressed behavior)
 
-## CSR's (machine only)
+## CSR's and registers (machine only)
+
+### CSR's
 There's a 12 bit encoding space for CSR's. The top two bits indicate whether the register is read/write (00, 01 or 10) or read-only (11).  
 
 - misa: identifies the ISA used. 
@@ -94,11 +98,39 @@ There's a 12 bit encoding space for CSR's. The top two bits indicate whether the
     * SPELP/MPELP fields should be hardcoded to 0 and ignore writes
 - mtvec: holds trap vector configuration. 
     * The BASE field must be 4-byte aligned (note that the CSR doesn't contain the last two bits of BASE, those are zero filled when using BASE as an address)
-    * The MODE field is hardcoded to 0 and ignores writes
-    
+    * The MODE field is hardcoded to 0 and ignores writes (no support for vectored mode for now)
+- medeleg, mideleg: do not exist
+- mie/mip: mie contains interrupt enable bits, and mip contains info on pending interrupts. An interrupt i traps if mstatus.MIE=1 and bit i is set in both mip and mie. Spans various types of interrupts (external, timer, software, etc.).
+    * The MSIP, SEIP, STIP, SSIP, LCOFIP bits of mip should be read-only zero
+    * The MSIE, SEIE, STIE, SSIE, LCOFIE bits of mie should be read-only zero.
+- mcycle(h): counts the number of clock cycles executed. Has 64 bits (hence the higher bit version)
+- minstret(h): counts the number of instructions retired/executed. Has 64 bits (hence the higher bit version)
+- mhpmcounter3-31 / mhpmevent3-mhpmevent31: should be read-only zero. These are just counters for custom (platform-dependent) events, and can be zero if not implemented.
+- mcounteren: should not exist
+- mcountinhibit: controls whether mcycle/minstret/mhpmcountern increment. The CY/IR bits are 1/0 when mcycle/minstret do/do not count. HPMn bits control whether mhpmcountern csr's count, which they don't: these fields should be hardwired to zero, ignoring writes.
+- mscratch: use is entirely up to the platform. Typically, it is used to hold a pointer to a machine-mode hart-local context space and swapped with a user register upon entry to an M-mode trap handler.
+- mepc: When a trap is taken into M-mode, mepc is written with the virtual address of the instruction that was
+interrupted or that encountered the exception. The lowest two bits are always zero.
+- mcause: When a trap is taken into M-mode, mcause is written with a code indicating the event that caused the trap. 
+    * The interrupt bit is set if the trap was caused by an interrupt. 
+    * The exception code field contains a code identifying the last exception or interrupt. This is a WRLR field, meaning that it accepts any write, but illegal writes cause the system to enter an undefined state. So like a WARL field but without modifying illegal write inputs to be legal.
+    * Check the manual for a full list of the codes
+- mtval: When a trap is taken into M-mode, mtval is either set to zero or written with exception-specific information to assist software in handling the trap. Can be set to read-only zero if wanted. If not, it is a WARL register. See the manual for a list of rules for mtval in certain instructions (e.g. EBREAK).
+- mconfigptr: should be read-only zero (not implemented)
+- menvcfg(h): does not exist
+- mseccfg(h): does not exist
 
 Attempting to access any other CSR should raise an illegal instruction exception.
 
+### Registers
+
+Do i need stuff like mtime?  
+
+## Extra info
+
+- Upon reset, the mstatus fields MIE and MPRV are reset to 0. If little endian memory accesses are supported, the mstatus/mstatush field MBE is reset to 0. The pc is set to an implementation-defined reset vector. The mcause register is set to a value indicating the cause of the reset (can set to 0 if the implementation doesn't distinguish between reset conditions). 
+- Non-maskable interrupts (NMIs) are only used for hardware error conditions, and cause an immediate jump to an implementation-defined NMI vector running in M-mode regardless of the state of a hart’s interrupt enable bits. The mepc register is written with the virtual address of the instruction that was interrupted, and mcause is set to an implementation-defined value indicating the source of the NMI. The NMI can thus overwrite state in an active machine-mode interrupt handle. The values written to mcause on an NMI are implementation-defined. The high Interrupt bit of mcause should be set to indicate that this was an interrupt. An Exception Code of 0 is reserved to mean "unknown cause" and implementations that do not distinguish sources of NMIs via the mcause register should return 0 in the Exception Code.
+- Split the address space into main memory/IO. Allow byte/halfword/word accesses everywhere. Should I allow misaligned accesses? Disallow instruction fetch from IO regions.
 
 # Commands
 
