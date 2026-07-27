@@ -1,19 +1,26 @@
-I want to implement the RV32I instruction set + Zicsr, where the processor is always in machine mode, and is single cycle (I will maybe change it to be two cycles, fetch/decode and execute).
+I want to implement the RV32I instruction set (and possibly Zicsr where the processor is always in machine mode) with the classic five-stage pipeline (fetch, decode, execute, memory, writeback).
+- **Start by implementing only the basic arithmetic/logic, load/store and branching operations.**. Then consider adding in Zicsr.
+- Implement FENCE/WFI as a NOP? (for now)
+- Test your implementation with the official repo
+
+# Pipeline
+
+I did some research on the five-stage pipeline, here are notes (from books, wikipedia, etc.)
+
+## General notes
+
+- From what I can see, you separate the stages using pipeline registers which kind of act like a waiting mechanism between cycles. 
+- An instruction may trap/raise an exception (e.g. for an illegal CSR access): so architectural changes should not be applied until you're sure the instruction won't raise something like that
+- Keep it simple: don't implement any branch prediction, apart from assuming that branches aren't taken.
+
+## Hazards
+
+- A hazard is a term from a problem you might get when trying to use the pipeline naively. For exampe, when the result of one instruction is needed by a subsequent one before the former has completed in the pipeline, or when you need to clear the pipeline after a branch has been taken. To resolve hazards, you usually make a dedicated hazard unit to detect hazards and handle them.
+- Forwarding/bypassing is used to quickly send intermediate values in one instruction to another part of the pipeline for the next instruction, to avoid a hazard. For example, when executing add x0, x1, x2 followed by sub x3, x0, x4, the sub instruction needs to read the value of x0 after the previous add has already finished executing: this can be done by forwarding the intermediate addition result back in the pipeline so it can be used by the sub instruction.
+- Stalling is used when forwarding doesn't work or for architectural hazards like two instructions trying to both read memory at the same time (e.g. trying to read instructions and data from memory simultaneously). It simply introduces a delay (like a NOP) between instructions until the instructions can execute as normal again.
+- Flushing: consider branching. What instructions should your pipeline fetch next? The ones after the branch instruction or the ones following where the branch is pointing to? The simple approach is to assume it won't be taken, meaning a taken branch will require the pipeline to be flushed. More advanced processors will try to predict whether the branch will be taken or not: in general, a mispredicted branch introduces a penalty in pipelined processors.
 
 # Notes from the manuals
-
-This is going to take a while...
-
-## Implementation ideas / notes to myself
-- Keep the shifter inside the ALU, but have a hardcoded shift by 12 circuit
-- And then add the zero register to that
-- Have the write data to the register file be multiplexed between PC+4, alu output, memory output, and csr out
-- Have the write data to the csr file be multiplexed between register file output, register file output orred with csr output, etc. (to implement setting/clearing bits)
-- Have a zero extend from the output of the csr file
-- Have the write data to the pc be multiplexed between alu output and PC+4
-- Implement FENCE as a NOP (for now... may change on a multi-cycle or multi-core cpu)
-- Need to make sure that all machine instructions are supported (the ones that should be)
-- Test your implementation with the official repo
 
 ## Registers
 - There are 32 registers, each 32 bits, called x0-x31. `x0` is the the zero register, and is always zero. x1-x31 are general purpose.
