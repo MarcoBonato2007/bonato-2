@@ -7,14 +7,16 @@ This is going to take a while...
 ## Implementation ideas / notes to myself
 - Keep the shifter inside the ALU, but have a hardcoded shift by 12 circuit
 - And then add the zero register to that
-- Have the write data to the register file be multiplexed between PC+4, alu output and memory output
+- Have the write data to the register file be multiplexed between PC+4, alu output, memory output, and csr out
+- Have the write data to the csr file be multiplexed between register file output, register file output orred with csr output, etc. (to implement setting/clearing bits)
+- Have a zero extend from the output of the csr file
 - Have the write data to the pc be multiplexed between alu output and PC+4
 - Implement FENCE as a NOP (for now... may change on a multi-cycle or multi-core cpu)
 - Need to make sure that all machine instructions are supported (the ones that should be)
 - Test your implementation with the official repo
 
 ## Registers
-- There are 32 registers, each 32 bits, called x0-x31. `x0` is the the zero register, and is always zero. x1-x32 are general purpose.
+- There are 32 registers, each 32 bits, called x0-x31. `x0` is the the zero register, and is always zero. x1-x31 are general purpose.
 - There is only one additional unprivileged register, which is the program counter. There is no dedicated sp/lr/etc.
 - A 'saved register' is one that should remain unchanged after a subroutine has finished executing
 ### Convention
@@ -51,7 +53,7 @@ This is going to take a while...
 - Immediate arithmetic (e.g. `ANDI`): `0010011`
 - Register arithmetic (e.g. `AND`): `0110011`
 - `FENCE`, `PAUSE`: `0001111`
-- `ECALL`, `BREAK`, `CSRRW(I)`, `CSRRS(I)`, `CSRRC(I)`, `MRET`, `WFI`: `1110011` (system opcode)
+- `ECALL`, `EBREAK`, `CSRRW(I)`, `CSRRS(I)`, `CSRRC(I)`, `MRET`, `WFI`: `1110011` (system opcode)
 
 ### funct3
 - Branch/load/store instructions: `funct3` helps to uniquely identify the type of instruction (e.g. differentiating `BLT` and `BGE`)
@@ -122,14 +124,9 @@ interrupted or that encountered the exception. The lowest two bits are always ze
 
 Attempting to access any other CSR should raise an illegal instruction exception.
 
-### Registers
-
-Do i need stuff like mtime?  
-
 ## Extra info
 
 - Upon reset, the mstatus fields MIE and MPRV are reset to 0. If little endian memory accesses are supported, the mstatus/mstatush field MBE is reset to 0. The pc is set to an implementation-defined reset vector. The mcause register is set to a value indicating the cause of the reset (can set to 0 if the implementation doesn't distinguish between reset conditions). 
-- Non-maskable interrupts (NMIs) are only used for hardware error conditions, and cause an immediate jump to an implementation-defined NMI vector running in M-mode regardless of the state of a hart’s interrupt enable bits. The mepc register is written with the virtual address of the instruction that was interrupted, and mcause is set to an implementation-defined value indicating the source of the NMI. The NMI can thus overwrite state in an active machine-mode interrupt handle. The values written to mcause on an NMI are implementation-defined. The high Interrupt bit of mcause should be set to indicate that this was an interrupt. An Exception Code of 0 is reserved to mean "unknown cause" and implementations that do not distinguish sources of NMIs via the mcause register should return 0 in the Exception Code.
 - Split the address space into main memory/IO. Allow byte/halfword/word accesses everywhere. Should I allow misaligned accesses? Disallow instruction fetch from IO regions.
 
 # Commands
