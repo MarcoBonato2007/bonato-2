@@ -6,7 +6,7 @@ module ram (
     input logic [7:0] address,
     input logic write_enable,
     input logic [31:0] write_data,
-    output logic [31:0] ram_out,
+    output logic [31:0] ram_out
 );
     logic [31:0] memory [255:0];
 

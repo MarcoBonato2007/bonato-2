@@ -5,16 +5,16 @@ module pc (
     input logic clk,
     input logic rst_n,
     input logic [31:0] nextpc,
-    output logic [31:0] currentpc,
+    output logic [31:0] currentpc
 );
-    logic [31:0] pc;
-    assign currentpc = pc;
+    logic [31:0] pc_reg;
+    assign currentpc = pc_reg;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            pc <= 32'b0;
+            pc_reg <= 32'b0;
         end else begin
-            pc <= nextpc;
+            pc_reg <= nextpc;
         end
     end
     

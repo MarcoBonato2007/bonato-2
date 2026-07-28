@@ -3,8 +3,7 @@ module regfile (
     input logic clk,
     input logic [4:0] reg1_select,
     input logic [4:0] reg2_select,
-    input logic [4:0] write_select,
-    input logic write_enable,
+    input logic [4:0] write_select, // set to zero for no write
     input logic [31:0] write_data,
     output logic [31:0] reg1_out,
     output logic [31:0] reg2_out
