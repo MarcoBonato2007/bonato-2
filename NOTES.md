@@ -5,13 +5,16 @@ I want to implement the RV32I instruction set (and possibly Zicsr where the proc
 
 # Pipeline
 
-I did some research on the five-stage pipeline, here are notes (from books, wikipedia, etc.)
+I did some research on the five-stage pipeline. Here are some notes (from books, wikipedia, etc.), or theories about how to implement it.
+
+Currently a question is how much to put in the decode stage, and how much to put in the execute stage (some things seem like they could go in both).
 
 ## General notes
 
 - From what I can see, you separate the stages using pipeline registers which kind of act like a waiting mechanism between cycles. 
 - An instruction may trap/raise an exception (e.g. for an illegal CSR access): so architectural changes should not be applied until you're sure the instruction won't raise something like that
 - Keep it simple: don't implement any branch prediction, apart from assuming that branches aren't taken.
+- I'll have separate data and instruction memory (Harvard architecture). I could implement a Von Neumann architecture: I don't think it would be that complicated, apart from needing extra hazard detection (memory will always be being read from for a new instruction, so any memory read/write instructions cause a hazard).
 
 ## Hazards
 
@@ -19,6 +22,45 @@ I did some research on the five-stage pipeline, here are notes (from books, wiki
 - Forwarding/bypassing is used to quickly send intermediate values in one instruction to another part of the pipeline for the next instruction, to avoid a hazard. For example, when executing add x0, x1, x2 followed by sub x3, x0, x4, the sub instruction needs to read the value of x0 after the previous add has already finished executing: this can be done by forwarding the intermediate addition result back in the pipeline so it can be used by the sub instruction.
 - Stalling is used when forwarding doesn't work or for architectural hazards like two instructions trying to both read memory at the same time (e.g. trying to read instructions and data from memory simultaneously). It simply introduces a delay (like a NOP) between instructions until the instructions can execute as normal again.
 - Flushing: consider branching. What instructions should your pipeline fetch next? The ones after the branch instruction or the ones following where the branch is pointing to? The simple approach is to assume it won't be taken, meaning a taken branch will require the pipeline to be flushed. More advanced processors will try to predict whether the branch will be taken or not: in general, a mispredicted branch introduces a penalty in pipelined processors.
+
+## Fetch
+
+- Should mainly contain the PC and instruction memory. It should feed the fetched intruction (and also probably its PC value) forward to the decode stage via a pipeline register.
+- On a branch (suppose there's a branch further in the pipeline, either in the execute or writeback stage), apart from the rest of the pipeline being flushed, the PC should set its value to the new one
+
+## Decode
+
+- This should just be responsible for generating the control signals for the following stages of the pipeline. Here are some ideas for the control signals I'll need:
+    * A 3-bit ALU control signal (taken from funct3 for arithmetic/logic operations, 0 otherwise (assuming all other operations only use the ALU for addition)), along with a modifier bit (to change add into sub and right shift into arithmetic right shift)
+    * Two register read signals and a register write signal & write enable signal
+    * A memory read/write signal. 
+    * Something to choose between a register selection and the PC (for the first ALU input)
+    * Something to choose between a register selection and an immediate value (for the second ALU input)
+    * A signal to decide whether the PC is replaced with PC+4 or the ALU output (actually, this can be generated in the execute stage)
+    * A signal to decide whether the register file write input is PC+4 / alu output / memory output
+    * A signal to decide whether to shift an immediate value left by 12 (hardcoded shifter circuit)
+    * The data memory read input can always be ALU output, and its write input can always be the second register selection (although perhaps modified when writing a byte/half). Note this means the second register selection should be available even if it's not the second alu input.
+- From what I can see online, this stage also includes steps like sign extending immediates, choosing alu inputs, reading the register file, etc. (i.e. getting everything ready before the execute step). Maybe some things can go in the execute step though.
+- You could combine the sign extension circuitry with the shift left by 12 component (which together makes the component that completely prepares immediates for the execute stage)
+- This is also a good stage to send data to the hazard/control unit to decide whether to go ahead with this instruction as usual or if there's a need to flush/stall
+
+## Execute
+
+- This stage should definitely contain the ALU, and perhaps also the hardcoded shift by 12 component (as previously mentioned you could also put this into the decode stage)
+- Consider branching: you'd want to perform a comparison, and also calculate a sum with the PC. The ALU already has its control codes filled by other operations, so you'll probably want to have a separate comparison circuit.
+- You'll probably want to generate a control signal here (the one that decides whether the PC increments or is replaced by the ALU output)
+- This is probably where you'd want to detect a taken branch and flush the pipeline if so. However, it might be a good idea to move the comparison circuit to the decode step, and detect taken branches there, reducing the amount of the pipeline that is flushed on a taken branch.
+- You could move the muxes for choosing alu inputs into this section, so that you can do forwarding more easily. Or you could keep them in the decode stage.
+
+## Memory access
+
+- This should just contain the data memory, and get fed some signals like read address/write input/write address/write enable/etc.
+- Actually, chances are that the read and write address inputs are actually the same (i.e. the memory can't read and write at the same time)
+
+## Writeback
+
+- I think this section can just contain the multiplexer used to choose what to write back into the register file, the output of which can then be fed back into the pipeline stage with the register file.
+- Note: apparently some hardware impementations of register don't work when being read from and written to at the same time, so it might be a good idea to have hazard detection for this (this can probably be solved easily by forwarding).
 
 # Notes from the manuals
 
