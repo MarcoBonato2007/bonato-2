@@ -17,6 +17,7 @@ module decoder (
     funct3 = instruction[14:12];
     rs1 = instruction[19:15]
     rs2 = instruction[24:20]
+    imm_i = instruction[31:20] // TODO: modify to make it work for different opcodes, put in block below
 
     always_comb begin
         if (opcode == 7'b0110011) begin
@@ -29,8 +30,62 @@ module decoder (
             alu_in_1_select = 1'b0;
             alu_in_2_select = 1'b0;
             rf_write_select = 2'b00;
+            shift12 = 1'b0;
+        end else if (opcode == 7'b0010011) begin
+            alu_op = funct3;
+            alu_mod = (funct3 == 3'b101) ? instruction[30] : 0;
+            rread1 = rs1;
+            rread2 = rs2; // Ignored, could set to zero
+            rwrite = rd;
+            mem_write = 1'b0;
+            alu_in_1_select = 1'b0;
+            alu_in_2_select = 1'b1;
+            rf_write_select = 2'b00;
+            shift12 = 1'b0;
+        end else if (opcode == 7'b0000011) begin
+            alu_op = 3'b000; // add
+            alu_mod = 1'b0;
+            rread1 = rs1;
+            rread2 = rs2; // Ignored, could set to zero
+            rwrite = rd;
+            mem_write = 1'b0; // mem read
+            alu_in_1_select = 1'b0;
+            alu_in_2_select = 1'b1;
+            rf_write_select = 2'b01;
+            shift12 = 1'b0;
+        end else if (opcode == 7'b0100011) begin
+            alu_op = 3'b000; // add
+            alu_mod = 1'b0;
+            rread1 = rs1;
+            rread2 = rs2; // Ignored, could set to zero
+            rwrite = 3'b000; // ignore write to register (by writing to x0)
+            mem_write = 1'b1;
+            alu_in_1_select = 1'b0;
+            alu_in_2_select = 1'b1;
+            rf_write_select = 2'b00;
+            shift12 = 1'b0;
+        end else if (opcode == 7'b1100011) begin
+            alu_op = 3'b000; // add
+            alu_mod = 1'b0;
+            rread1 = rs1;
+            rread2 = rs2; // Ignored, could set to zero
+            rwrite = 3'b000; // ignore write to register (by writing to x0)
+            mem_write = 1'b1;
+            alu_in_1_select = 1'b0;
+            alu_in_2_select = 1'b1;
+            rf_write_select = 2'b00;
+            shift12 = 1'b0;
+        end else if (opcode == 7'b1101111) begin
+        end else if (opcode == 7'b1100111) begin
+        end else if (opcode == 7'b0110111) begin
+        end else if (opcode == 7'b0010111) begin
         end
         // continue...
+
+        // TODO: Think about how to implement loading a byte vs half vs word vs unsigned byte vs unsigned half
+        // TODO: need to have a circuit to construct the imm's for each instruction type properly
+            // e.g. for s type vs i type they are in different places
+        // TODO: need a control signal for the conditional branch
     end
 
 
