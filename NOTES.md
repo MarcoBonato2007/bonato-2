@@ -38,10 +38,8 @@ Currently a question is how much to put in the decode stage, and how much to put
     * Something to choose between a register selection and an immediate value (for the second ALU input)
     * A signal to decide whether the PC is replaced with PC+4 or the ALU output (actually, this can be generated in the execute stage)
     * A signal to decide whether the register file write input is PC+4 / alu output / memory output
-    * A signal to decide whether to shift an immediate value left by 12 (hardcoded shifter circuit)
     * The data memory read input can always be ALU output, and its write input can always be the second register selection (although perhaps modified when writing a byte/half). Note this means the second register selection should be available even if it's not the second alu input.
 - From what I can see online, this stage also includes steps like sign extending immediates, choosing alu inputs, reading the register file, etc. (i.e. getting everything ready before the execute step). Maybe some things can go in the execute step though.
-- You could combine the sign extension circuitry with the shift left by 12 component (which together makes the component that completely prepares immediates for the execute stage)
 - This is also a good stage to send data to the hazard/control unit to decide whether to go ahead with this instruction as usual or if there's a need to flush/stall
 
 ## Execute
