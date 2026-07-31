@@ -44,7 +44,7 @@ Currently a question is how much to put in the decode stage, and how much to put
 
 ## Execute
 
-- This stage should definitely contain the ALU, and perhaps also the hardcoded shift by 12 component (as previously mentioned you could also put this into the decode stage)
+- This stage should definitely contain the ALU
 - Consider branching: you'd want to perform a comparison, and also calculate a sum with the PC. The ALU already has its control codes filled by other operations, so you'll probably want to have a separate comparison circuit.
 - You'll probably want to generate a control signal here (the one that decides whether the PC increments or is replaced by the ALU output)
 - This is probably where you'd want to detect a taken branch and flush the pipeline if so. However, it might be a good idea to move the comparison circuit to the decode step, and detect taken branches there, reducing the amount of the pipeline that is flushed on a taken branch.
@@ -54,6 +54,10 @@ Currently a question is how much to put in the decode stage, and how much to put
 
 - This should just contain the data memory, and get fed some signals like read address/write input/write address/write enable/etc.
 - Actually, chances are that the read and write address inputs are actually the same (i.e. the memory can't read and write at the same time)
+- When loading in a value, read from the address % 4, then select the output based on if you're reading a word/half/byte, and zero/sign extend it depending on the instruction. 
+    * This needs two control signals: one to decide if you read word/half/byte, and another to decide to zero or sign extend. 
+    * Zero extension is on funct3 = 0x4 or 0x5 (others are 0x0, 0x1, 0x2) so you can zero extend when funct3[2] = 1 and sign extend otherwise
+    * Load byte is 0x0/0x4 (000/100), load half is 0x1/0x5 (001/101), load word is 0x2 (010). So you can choose between reading word/half/byte based on funct3[1:0].
 
 ## Writeback
 
@@ -200,13 +204,13 @@ show -format svg -prefix and_gate
 
 `
 yosys -p "
-read_verilog -sv and_gate.sv;
-hierarchy -top and_gate;
+read_verilog -sv decoder.sv;
+hierarchy -top decoder;
 proc;
 opt;
-write_json and_gate.json
+write_json decoder.json
 "
 `
 
-`netlistsvg and_gate.json -o and_gate.svg`
+`netlistsvg decoder.json -o decoder.svg`
 
