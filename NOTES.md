@@ -40,7 +40,8 @@ Currently a question is how much to put in the decode stage, and how much to put
     * A signal to decide whether the register file write input is PC+4 / alu output / memory output
     * The data memory read input can always be ALU output, and its write input can always be the second register selection (although perhaps modified when writing a byte/half). Note this means the second register selection should be available even if it's not the second alu input.
 - From what I can see online, this stage also includes steps like sign extending immediates, choosing alu inputs, reading the register file, etc. (i.e. getting everything ready before the execute step). Maybe some things can go in the execute step though.
-- This is also a good stage to send data to the hazard/control unit to decide whether to go ahead with this instruction as usual or if there's a need to flush/stall
+- This is also a good stage to send data to the hazard/control unit to decide whether to go ahead with this instruction as usual or if there's a need to flush/stall.
+- If you spot an unconditional branch, what if you could immediately flush and start fetching from the new pc location?
 
 ## Execute
 
