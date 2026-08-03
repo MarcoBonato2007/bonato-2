@@ -23,6 +23,11 @@ Currently a question is how much to put in the decode stage, and how much to put
 - Stalling is used when forwarding doesn't work or for architectural hazards like two instructions trying to both read memory at the same time (e.g. trying to read instructions and data from memory simultaneously). It simply introduces a delay (like a NOP) between instructions until the instructions can execute as normal again.
 - Flushing: consider branching. What instructions should your pipeline fetch next? The ones after the branch instruction or the ones following where the branch is pointing to? The simple approach is to assume it won't be taken, meaning a taken branch will require the pipeline to be flushed. More advanced processors will try to predict whether the branch will be taken or not: in general, a mispredicted branch introduces a penalty in pipelined processors.
 
+### Stalling
+
+How exactly is stalling done? From what I can see, you'd need to freeze instructions in certain early parts of the pipeline for a cycle, to be able to insert a NOP. So I'll probably want a write enable/disable on pipeline registers, and probably also on the program counter.
+
+
 ## Fetch
 
 - Should mainly contain the PC and instruction memory. It should feed the fetched intruction (and also probably its PC value) forward to the decode stage via a pipeline register.
