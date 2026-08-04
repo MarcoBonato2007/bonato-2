@@ -8,8 +8,9 @@ module data_mem (
     output logic [31:0] mem_out
 );
     // Associative array to simulate the entire 32-bit addressing space
-    logic [31:0] mem [logic [31:0]];
+    logic [7:0] mem [logic [31:0]];
 
+    // TODO: change this to handle loading/storing a word/half/byte
     always_ff @(posedge clk) begin
         if (mem_mode == MEM_WRITE) begin
             mem[addr] = write_data;

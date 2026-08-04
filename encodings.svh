@@ -41,6 +41,4 @@ typedef enum logic {
     NEXTPC_SEL_ALU_OUT = 1'b1
 } nextpc_sel_e;
 
-
-
 `endif
