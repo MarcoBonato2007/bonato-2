@@ -18,14 +18,25 @@ Currently a question is how much to put in the decode stage, and how much to put
 
 ## Hazards
 
+### Overview
+
 - A hazard is a term from a problem you might get when trying to use the pipeline naively. For exampe, when the result of one instruction is needed by a subsequent one before the former has completed in the pipeline, or when you need to clear the pipeline after a branch has been taken. To resolve hazards, you usually make a dedicated hazard unit to detect hazards and handle them.
 - Forwarding/bypassing is used to quickly send intermediate values in one instruction to another part of the pipeline for the next instruction, to avoid a hazard. For example, when executing add x0, x1, x2 followed by sub x3, x0, x4, the sub instruction needs to read the value of x0 after the previous add has already finished executing: this can be done by forwarding the intermediate addition result back in the pipeline so it can be used by the sub instruction.
 - Stalling is used when forwarding doesn't work or for architectural hazards like two instructions trying to both read memory at the same time (e.g. trying to read instructions and data from memory simultaneously). It simply introduces a delay (like a NOP) between instructions until the instructions can execute as normal again.
 - Flushing: consider branching. What instructions should your pipeline fetch next? The ones after the branch instruction or the ones following where the branch is pointing to? The simple approach is to assume it won't be taken, meaning a taken branch will require the pipeline to be flushed. More advanced processors will try to predict whether the branch will be taken or not: in general, a mispredicted branch introduces a penalty in pipelined processors.
 
-### Stalling
+### Implementing
 
-How exactly is stalling done? From what I can see, you'd need to freeze instructions in certain early parts of the pipeline for a cycle, to be able to insert a NOP. So I'll probably want a write enable/disable on pipeline registers, and probably also on the program counter.
+- Forwarding can be done with muxes at certain places (e.g. around the register file), controlled by the hazard detection unit. I do need to get an idea of all the possible places you could forward.
+- Stalling could be done by implementing write enable signals on pipeline registers and other components like the register file (I thought writing to x0 would be enough for a write disable, but not if i'm trying to stall). Injecting the bubble is as simple as setting a bunch of zeroes somewhere in the pipeline. Question: where does the bubble get inserted? is it always in the same place? I need a list of pipeline hazard examples to deal with one by one. Also, the bubble should maybe resemble an actual instruction, to make things easier for the hazard unit.
+- Flushing should be quite simple: you detect a taken branch in the execute stage, and then clear the fetch and decode stages before the next clock cycle (so taken branches introduce a 2 cycle penalty).
+- There's also the question of if these measures could combine and cause more problems in some way
+
+### List of examples
+
+- Read after write: consider `add x1, x2, x3` followed by `sub x4, x1, x5`. At the decode stage, the sub instruction will require the correctected value of x1. To fix this you would need to stall until the add intruction reaches the execute stage: then you can write to x1 in the register file, while forwarding its new value out of the register file read. However you could forward earlier: once add is in the execute stage, you already have the new value for x1, so you can forward to the decode stage with no stalls. However if the first instruction was a load, you would need a single bubble.
+- ...
+- Note: is it possible to layer more hazards on top of each other? E.g. read after write after write? What happens then?
 
 
 ## Fetch
