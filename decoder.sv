@@ -4,9 +4,8 @@
 module decoder (
     input logic [31:0] instruction,
 
-    output logic [2:0] alu_op,
+    output logic [3:0] alu_op,
     output logic [2:0] funct3,
-    output logic alu_mod, // turns add into sub, right shift into arithmetic right shift
     output logic [4:0] rread1,
     output logic [4:0] rread2,
     output logic [4:0] rwrite,
@@ -29,8 +28,7 @@ module decoder (
     always_comb begin
         funct3 = instruction[14:12];
         if (opcode == OP_AL_REG) begin
-            alu_op = funct3;
-            alu_mod = instruction[30];
+            alu_op = {instruction[30], funct3};
             rread1 = rs1;
             rread2 = rs2;
             rwrite = rd;
@@ -42,8 +40,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_PC_PLUS4;
             imm = 32'b0; // dummy value
         end else if (opcode == OP_AL_IMM) begin
-            alu_op = funct3;
-            alu_mod = (funct3 == 3'b101) ? instruction[30] : 0;
+            alu_op = {(funct3 == 3'b101) ? instruction[30] : 0, funct3};
             rread1 = rs1;
             rread2 = 5'b00000;
             rwrite = rd;
@@ -55,8 +52,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_PC_PLUS4;
             imm = {{20{instruction[31]}}, instruction[31:20]};
         end else if (opcode == OP_LOAD) begin
-            alu_op = 3'b000; // add
-            alu_mod = 1'b0;
+            alu_op = 4'b0000; // add
             rread1 = rs1;
             rread2 = 5'b00000;
             rwrite = rd;
@@ -68,8 +64,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_PC_PLUS4;
             imm = {{20{instruction[31]}}, instruction[31:20]};
         end else if (opcode == OP_STORE) begin
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = rs1;
             rread2 = rs2;
             rwrite = 5'b00000; // ignore write to register (by writing to x0)
@@ -81,8 +76,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_PC_PLUS4;
             imm = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]};
         end else if (opcode == OP_BRANCH) begin
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = rs1;
             rread2 = rs2;
             rwrite = 5'b00000;
@@ -94,8 +88,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_ALU_OUT;
             imm = {{19{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1'b0};
         end else if (opcode == OP_JAL) begin
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = 5'b00000; 
             rread2 = 5'b00000;
             rwrite = rd;
@@ -107,8 +100,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_ALU_OUT;
             imm = {{11{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0};
         end else if (opcode == OP_JALR) begin
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = rs1;
             rread2 = 5'b00000;
             rwrite = rd;
@@ -120,8 +112,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_ALU_OUT;
             imm = {{20{instruction[31]}}, instruction[31:20]};
         end else if (opcode == OP_LUI) begin
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = 5'b00000;
             rread2 = 5'b00000;
             rwrite = rd;
@@ -133,8 +124,7 @@ module decoder (
             nextpc_sel = NEXTPC_SEL_PC_PLUS4;
             imm = {instruction[31:12], 12'b0};
         end else if (opcode == OP_AUIPC) begin
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = 5'b00000;
             rread2 = 5'b00000;
             rwrite = rd;
@@ -147,8 +137,7 @@ module decoder (
             imm = {instruction[31:12], 12'b0};
         end else begin
             // undefined, treat as NOP
-            alu_op = 3'b000;
-            alu_mod = 1'b0;
+            alu_op = 4'b0000;
             rread1 = 5'b00000;
             rread2 = 5'b00000;
             rwrite = 5'b00000;

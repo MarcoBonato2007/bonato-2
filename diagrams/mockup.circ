@@ -119,19 +119,19 @@
     <comp lib="3" loc="(730,220)" name="Adder">
       <a name="width" val="32"/>
     </comp>
-    <comp lib="8" loc="(112,519)" name="Text">
+    <comp lib="8" loc="(110,515)" name="Text">
       <a name="text" val="Fetch"/>
     </comp>
-    <comp lib="8" loc="(1141,525)" name="Text">
+    <comp lib="8" loc="(1140,525)" name="Text">
       <a name="text" val="Writeback"/>
     </comp>
-    <comp lib="8" loc="(362,518)" name="Text">
+    <comp lib="8" loc="(360,515)" name="Text">
       <a name="text" val="Decode"/>
     </comp>
-    <comp lib="8" loc="(683,522)" name="Text">
+    <comp lib="8" loc="(680,520)" name="Text">
       <a name="text" val="Execute"/>
     </comp>
-    <comp lib="8" loc="(940,522)" name="Text">
+    <comp lib="8" loc="(940,520)" name="Text">
       <a name="text" val="Memory"/>
     </comp>
     <comp loc="(1030,320)" name="data_mem"/>

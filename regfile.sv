@@ -14,7 +14,7 @@ module regfile (
     assign reg2_out = (reg2_select == 5'b0) ? 32'b0 : registers[reg2_select];
 
     always_ff @(posedge clk) begin
-        if (write_enable && write_select != 5'b0) begin
+        if (write_select != 5'b0) begin
             registers[write_select] <= write_data; // Write to the selected register
         end
     end
