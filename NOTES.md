@@ -32,12 +32,14 @@ Currently a question is how much to put in the decode stage, and how much to put
 - Flushing should be quite simple: you detect a taken branch in the execute stage, and then clear the fetch and decode stages before the next clock cycle (so taken branches introduce a 2 cycle penalty).
 - There's also the question of if these measures could combine and cause more problems in some way
 
-### List of examples
+### List of cases
 
-- Read after write: consider `add x1, x2, x3` followed by `sub x4, x1, x5`. At the decode stage, the sub instruction will require the correctected value of x1. To fix this you would need to stall until the add intruction reaches the execute stage: then you can write to x1 in the register file, while forwarding its new value out of the register file read. However you could forward earlier: once add is in the execute stage, you already have the new value for x1, so you can forward to the decode stage with no stalls. However if the first instruction was a load, you would need a single bubble.
-- ...
-- Note: is it possible to layer more hazards on top of each other? E.g. read after write after write? What happens then?
-
+- Read after write: happens when an instruction attempts to read something before a previous write has had time to fully register. Note that there's only two kinds of writes: writes to memory, and writes to registers. Writes to memory are never an issue since memory is only ever accessed/used in one place. Registers are written to by 3 sources: PC+4, memory out, or alu out.
+    * alu out: suppose you have `add x1, x2, x3` followed by `sub x4, x1, x5`. You can fix the hazard by immediately forwarding the alu output (once add is in the execute stage) into the decode stage when sub attempts to read x1. It can get slightly more complicated though: suppose you had the same two instructions, but with an extra one inbetween. Then when the add instruction is in the execute stage you can't immediately forward: you have to wait until sub reaches the decode stage, at which point the add instruction is in the memory stage, meaning you have the forward from the memory stage. If there were two instructions inbetween, this would cause a simultaneous read/write on the same register on the file, which can easily be solved, again by forwarding.
+    * pc+4: this is basically the same case as alu out, since pc+4 is calculated at the execute stage.
+    * memory out: this is the first case that requires some stalling: e.g. in the add followed by sub example, if the add instruction was a load, you would need to insert a bubble between them, and then forward the value backwards. You might also need to forward the value from the writeback stage backwards two stages if the instructions are further apart.
+- Overall, it seems like I need to implement backwards forwarding to the decode stage from a variety of places further in the pipeline, and also some way of adding a stall into the execute stage to keep an instruction in the decode stage until it can be forwarded to properly.
+- TODO: map out the possible cases more exhaustively
 
 ## Fetch
 
