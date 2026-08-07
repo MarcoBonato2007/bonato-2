@@ -1,5 +1,6 @@
 I want to implement the RV32I instruction set (and possibly Zicsr where the processor is always in machine mode) with the classic five-stage pipeline (fetch, decode, execute, memory, writeback).
 - **Start by implementing only the basic arithmetic/logic, load/store and branching operations.**. Then consider adding in Zicsr.
+- Note: propagate both PC and PC+4 through the pipeline (calculating PC+4 in the fetch stage)
 - Implement FENCE/WFI as a NOP? (for now)
 - Test your implementation with the official repo
 
@@ -25,21 +26,23 @@ Currently a question is how much to put in the decode stage, and how much to put
 - Stalling is used when forwarding doesn't work or for architectural hazards like two instructions trying to both read memory at the same time (e.g. trying to read instructions and data from memory simultaneously). It simply introduces a delay (like a NOP) between instructions until the instructions can execute as normal again.
 - Flushing: consider branching. What instructions should your pipeline fetch next? The ones after the branch instruction or the ones following where the branch is pointing to? The simple approach is to assume it won't be taken, meaning a taken branch will require the pipeline to be flushed. More advanced processors will try to predict whether the branch will be taken or not: in general, a mispredicted branch introduces a penalty in pipelined processors.
 
-### Implementing
+### Read after write
 
-- Forwarding can be done with muxes at certain places (e.g. around the register file), controlled by the hazard detection unit. I do need to get an idea of all the possible places you could forward.
-- Stalling could be done by implementing write enable signals on pipeline registers and other components like the register file (I thought writing to x0 would be enough for a write disable, but not if i'm trying to stall). Injecting the bubble is as simple as setting a bunch of zeroes somewhere in the pipeline. Question: where does the bubble get inserted? is it always in the same place? I need a list of pipeline hazard examples to deal with one by one. Also, the bubble should maybe resemble an actual instruction, to make things easier for the hazard unit.
-- Flushing should be quite simple: you detect a taken branch in the execute stage, and then clear the fetch and decode stages before the next clock cycle (so taken branches introduce a 2 cycle penalty).
-- There's also the question of if these measures could combine and cause more problems in some way
+- Suppose I have multiplexers set up to both read outputs of the register file in the *execute* stage from various sources.
+    * `add x1, x2, x3` followed by `sub x4, x1, x5`. Now, you would wait until add is in the memory stage, and then forward the alu output from the memory stage back to the execute stage. If there was an independent instruction in-between, then you would do this from the writeback stage instead. If there were two, then in the register file you would be attempting to write to `x1` at the same time that the sub instruction is attempting to read from it: this can easily be fixed (e.g. detect if the write select is one of the read inputs, and change the read output to be the write input if so), I think this is called internal forwarding.
+    * `lw x1, [x2, imm]` followed by `sub x4, x1, x5`. Previously (forwarding to the decode stage), we would have required a stall, but now we don't! Once the lw instruction is in the memory stage, it can forward to the execute stage, and there's no need for a stall. If there was one independent instruction in-between, you would need to forward memory out from the writeback stage instead.
+    * Finally, what about PC+4? PC+4 is only ever written to rd on a jump: with no branch prediction, this always causes a pipeline flush: so once the jump instruction reaches the writeback stage (at this point the PC has already updated, so the memory and execute stages are empty), an instruction that needs rd would be (at most) in the decode stage, at which point you can just do internal forwarding.
+- Overall, it seems like I need to implement backwards forwarding to the execute stage (register file read outputs) from a few of places further in the pipeline. But now it seems like I've eliminated all stalls?
+- Not quite: consider again the case `lw x1, [x2, imm]` followed by `sub x4, x1, x5`. I could forward from the end of the memory stage in theory, but it would mean that I would then have to wait for all the signals in the execute stage to settle again, reducing my maximum clock speed (since now I have to consider the combined propagation time of both of those stages). Essentially, when forwarding, I need to make sure that what I'm forwarding is already available without delay. This is only ever an issue when forwarding memory out from the memory stage: therefore this is only an issue when there is a load instruction in the memory stage that needs to forward to the execute stage, requiring a one cycle stall.
 
-### List of cases
+### Stalling and flushing
 
-- Read after write: happens when an instruction attempts to read something before a previous write has had time to fully register. Note that there's only two kinds of writes: writes to memory, and writes to registers. Writes to memory are never an issue since memory is only ever accessed/used in one place. Registers are written to by 3 sources: PC+4, memory out, or alu out.
-    * alu out: suppose you have `add x1, x2, x3` followed by `sub x4, x1, x5`. You can fix the hazard by immediately forwarding the alu output (once add is in the execute stage) into the decode stage when sub attempts to read x1. It can get slightly more complicated though: suppose you had the same two instructions, but with an extra one inbetween. Then when the add instruction is in the execute stage you can't immediately forward: you have to wait until sub reaches the decode stage, at which point the add instruction is in the memory stage, meaning you have the forward from the memory stage. If there were two instructions inbetween, this would cause a simultaneous read/write on the same register on the file, which can easily be solved, again by forwarding.
-    * pc+4: this is basically the same case as alu out, since pc+4 is calculated at the execute stage.
-    * memory out: this is the first case that requires some stalling: e.g. in the add followed by sub example, if the add instruction was a load, you would need to insert a bubble between them, and then forward the value backwards. You might also need to forward the value from the writeback stage backwards two stages if the instructions are further apart.
-- Overall, it seems like I need to implement backwards forwarding to the decode stage from a variety of places further in the pipeline, and also some way of adding a stall into the execute stage to keep an instruction in the decode stage until it can be forwarded to properly.
-- TODO: map out the possible cases more exhaustively
+- Stalling: from the previous section, I'm pretty sure I would only ever need to stall when you have a load followed by a read to the same register. You can do this by detecting this case once the read instruction is in the decode stage: then you would freeze the if/id and id/ex pipeline registers (and also pc writes), and insert a bubble into the execute stage, while letting the load instruction move into the memory stage as normal.
+- Flushing: in the current datapath design, you detect a taken branch/jump in the execute stage: at that point (before the next cycle), you'd need to zero out the two previous stages (a flush). That's probably what reset signals would be good for (on the pc and on pipeline registers).
+
+### Layering??
+
+- TODO: is it possible to create more complicated situations where you try to stack hazards on top of each other? E.g. some combination of reads and writes that combine in a way that can't be handled via methods described previously in this section.
 
 ## Fetch
 
