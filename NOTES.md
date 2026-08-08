@@ -1,90 +1,114 @@
-I want to implement the RV32I instruction set (and possibly Zicsr where the processor is always in machine mode) with the classic five-stage pipeline (fetch, decode, execute, memory, writeback).
-- **Start by implementing only the basic arithmetic/logic, load/store and branching operations.**. Then consider adding in Zicsr.
-- Note: propagate both PC and PC+4 through the pipeline (calculating PC+4 in the fetch stage)
-- Implement FENCE/WFI as a NOP? (for now)
-- Test your implementation with the official repo
+Currently I'm going to implement the RV32I instruction set (excluding ecall/ebreak) with a standard five-stage pipeline. In future, I may add more features (mainly Zicsr and ecall/ebreak support).
+
+# General notes
+
+- Remember to test your implementation with the official repository to make sure it's implemented correctly
+- In future I might add an adder to the decode stage to reduce the penalty for jumps by 1 cycle, although this would complicate hazards (especially if you tried to do this for conditional branches).
+- FENCE, WFI, ECALL and EBREAK will be implemented as NOPs for now.
+- There's no branch prediction at the moment: taken branches or jumps introduce a 2 cycle penalty.
+- Instruction and data memories will be separate (this simplified hazards)
 
 # Pipeline
 
-I did some research on the five-stage pipeline. Here are some notes (from books, wikipedia, etc.), or theories about how to implement it.
+## Stages
 
-Currently a question is how much to put in the decode stage, and how much to put in the execute stage (some things seem like they could go in both).
+Note: hazard management implementation details aren't fully worked out yet
 
-## General notes
+### Fetch
 
-- From what I can see, you separate the stages using pipeline registers which kind of act like a waiting mechanism between cycles. 
-- An instruction may trap/raise an exception (e.g. for an illegal CSR access): so architectural changes should not be applied until you're sure the instruction won't raise something like that
-- Keep it simple: don't implement any branch prediction, apart from assuming that branches aren't taken.
-- I'll have separate data and instruction memory (Harvard architecture). I could implement a Von Neumann architecture: I don't think it would be that complicated, apart from needing extra hazard detection (memory will always be being read from for a new instruction, so any memory read/write instructions cause a hazard).
+- Contains the instruction memory and the pc (which is fed directly into the instruction memory)
+- Also contains a multiplexer to choose between PC+4 and alu output (taken from the execute stage) for the next pc value, which is fed into the write input for the pc.
+- Feeds an instruction and its pc value into the if/id pipeline register
+
+### Decode
+
+- Contains the instruction decoder, and the register file
+- The register file directly reads rs1 and rs2 from the decoded instruction. The write select and write data inputs come from the writeback stage later in the pipeline. Note that forwarding happens at the execute stage.
+- The register file has internal forwarding: so when a register x is being written to with data y, any reads to x that happen simultaneously with the write will output y instead of the old value of x.
+- The instruction decoder automatically constructs and sign extends immediates
+- This section feeds the following signals to the id/ex pipeline register:
+    * rs1_out
+    * rs2_out
+    * imm
+    * alu_in1_sel (chooses between rs1 and PC for the first ALU input)
+    * alu_in2_sel (chooses between rs2 and imm for the second ALU input)
+    * alu_op
+    * funct3
+    * is_cond (if set to 1, it will ignore an instruction if comparison between rs1 and rs2 fails)
+    * nextpc_sel (chooses between PC+4 and alu output (i.e. branch address) for the next alu value)
+    * mem_mode (read or write)
+    * rf_in_sel (chooses between PC+4, alu output, and memory output for register file write data)
+    * rwrite (which register to write to)
+
+### Execute
+
+- Contains multiplexers for the incoming rs1 and rs2 signals, connected to further pipeline stages for forwarding
+- Contains two multiplexers to choose the first and second inputs to the ALU using the signals described previously
+- Contains the ALU and a parallel comparison unit (which compares rs1 and rs2). If is_cond is 1, and comparison fails, then control signals are zeroed out, causing the instruction to turn into a NOP.
+- This is the stage where branch addresses are calculated and branches/jumps are taken: branch addresses are calculated from the ALU, so there is a connection from the ALU back to the multiplexer in the fetch stage choosing the next pc value.
+- This section feeds the following signals to the ex/mem pipeline register:
+    * pc+4
+    * alu output
+    * rs2 (needed for memory accesses)
+    * mem_mode
+    * rf_in_sel
+    * rwrite
+
+### Memory
+
+- This section only contains the data memory, which is fed an address (alu output), write data (rs2), the mem_mode signal, and funct3 (to choose between loading/storing a word/half/byte).
+- Things like handling sign or zero extension when loading in values are handled inside the data memory block
+- This section feeds the following signals to the mem/wb pipeline register:
+    * pc+4
+    * alu_out
+    * mem_out
+    * rf_in_sel
+    * rwrite
+
+### Writeback
+
+- This section contains a multiplexer to choose between pc+4, alu_out, and mem_out for the register file data write input, chosen via rf_in_sel.
+- The chosen write input and the rwrite signal is then wired to the register file in the decode stage
 
 ## Hazards
 
-### Overview
+### Types of hazards
 
-- A hazard is a term from a problem you might get when trying to use the pipeline naively. For exampe, when the result of one instruction is needed by a subsequent one before the former has completed in the pipeline, or when you need to clear the pipeline after a branch has been taken. To resolve hazards, you usually make a dedicated hazard unit to detect hazards and handle them.
-- Forwarding/bypassing is used to quickly send intermediate values in one instruction to another part of the pipeline for the next instruction, to avoid a hazard. For example, when executing add x0, x1, x2 followed by sub x3, x0, x4, the sub instruction needs to read the value of x0 after the previous add has already finished executing: this can be done by forwarding the intermediate addition result back in the pipeline so it can be used by the sub instruction.
-- Stalling is used when forwarding doesn't work or for architectural hazards like two instructions trying to both read memory at the same time (e.g. trying to read instructions and data from memory simultaneously). It simply introduces a delay (like a NOP) between instructions until the instructions can execute as normal again.
-- Flushing: consider branching. What instructions should your pipeline fetch next? The ones after the branch instruction or the ones following where the branch is pointing to? The simple approach is to assume it won't be taken, meaning a taken branch will require the pipeline to be flushed. More advanced processors will try to predict whether the branch will be taken or not: in general, a mispredicted branch introduces a penalty in pipelined processors.
+- Branching/jumping: since there is no branch prediction, taken branches/jumps will require two stages of the pipeline to be flushed (i.e. zeroed out), introducing a 2 cycle penalty. 
+- Read after write: this is the main hazard, caused when an instruction writes to a register rd and the next attempts to read from rd. This is solved using forwarding, stalling, and internal forwarding. Here are some examples.
+    * `add x1, x2, x3` followed by `sub x4, x1, x5`. This case is solved by forwarding the alu output from the start of the memory stage to the start of the execute stage. If there was an instruction inbetween, you could forward the alu output from the start of the writeback stage instead. If there were two instructions in-between, then the hazard is solved by internal forwarding in the register file.
+    * The above example is the most common, but there's another important case: a load to a register followed by a read to it, for example, `lw x1, [x2, imm]` followed by `sub x4, x1, x5`. If there were one or two independent instructions in-between, then this hazard is solved in the same way as before (by forwarding memory out or internal forwarding respectively). However, if there is no instruction in-between, you would insert a bubble between the two instructions (stalling), and then use forwarding as in the one-in-between case. 
+    * Note: instead of stalling, you could forward from the end of the memory stage to the start of the execute stage, but then you would have to wait for all the signals in the execute stage to settle again, reducing the maximum clock speed considerably. Therefore stalling is the better option.
+- Note: read after write is only an issue with registers, since memory access can only happen in one place. Furthermore, registers can be written to by 3 things: alu out, memory out, and pc+4. Registers are only written by pc+4 on a jump, and since there's a 2 cycle penalty, the reading instruction is at most in the decode stage when the writing instruction is in the writeback stage, so only internal forwarding is needed. Therefore we don't need to worry about forwarding pc+4 to the multiplexers at the start of the execute satge.
 
-### Read after write
+### Forwarding
 
-- Suppose I have multiplexers set up to both read outputs of the register file in the *execute* stage from various sources.
-    * `add x1, x2, x3` followed by `sub x4, x1, x5`. Now, you would wait until add is in the memory stage, and then forward the alu output from the memory stage back to the execute stage. If there was an independent instruction in-between, then you would do this from the writeback stage instead. If there were two, then in the register file you would be attempting to write to `x1` at the same time that the sub instruction is attempting to read from it: this can easily be fixed (e.g. detect if the write select is one of the read inputs, and change the read output to be the write input if so), I think this is called internal forwarding.
-    * `lw x1, [x2, imm]` followed by `sub x4, x1, x5`. Previously (forwarding to the decode stage), we would have required a stall, but now we don't! Once the lw instruction is in the memory stage, it can forward to the execute stage, and there's no need for a stall. If there was one independent instruction in-between, you would need to forward memory out from the writeback stage instead.
-    * Finally, what about PC+4? PC+4 is only ever written to rd on a jump: with no branch prediction, this always causes a pipeline flush: so once the jump instruction reaches the writeback stage (at this point the PC has already updated, so the memory and execute stages are empty), an instruction that needs rd would be (at most) in the decode stage, at which point you can just do internal forwarding.
-- Overall, it seems like I need to implement backwards forwarding to the execute stage (register file read outputs) from a few of places further in the pipeline. But now it seems like I've eliminated all stalls?
-- Not quite: consider again the case `lw x1, [x2, imm]` followed by `sub x4, x1, x5`. I could forward from the end of the memory stage in theory, but it would mean that I would then have to wait for all the signals in the execute stage to settle again, reducing my maximum clock speed (since now I have to consider the combined propagation time of both of those stages). Essentially, when forwarding, I need to make sure that what I'm forwarding is already available without delay. This is only ever an issue when forwarding memory out from the memory stage: therefore this is only an issue when there is a load instruction in the memory stage that needs to forward to the execute stage, requiring a one cycle stall.
+I will forward to multiplexers at the start of the execute stage (for the rs1 and rs2 signals) from the following places ahead in the pipeline:
+- alu output (from the start of the memory stage)
+- alu output (from the start of the writeback stage)
+- memory output (from the start of the writeback stage)
 
-### Stalling and flushing
+### Stalling
 
-- Stalling: from the previous section, I'm pretty sure I would only ever need to stall when you have a load followed by a read to the same register. You can do this by detecting this case once the read instruction is in the decode stage: then you would freeze the if/id and id/ex pipeline registers (and also pc writes), and insert a bubble into the execute stage, while letting the load instruction move into the memory stage as normal.
-- Flushing: in the current datapath design, you detect a taken branch/jump in the execute stage: at that point (before the next cycle), you'd need to zero out the two previous stages (a flush). That's probably what reset signals would be good for (on the pc and on pipeline registers).
+From what I can see, the only case where this is required is on a load-use hazard: i.e. when you load a value from memory into a register, and then proceed to read from it. 
+While you could forward the memory out signal from the end of the memory stage to the start of the execute stage, this would really reduce the maximum clock speed. So instead you stall the pipeline by 1 cycle. 
+This happens when the reading instruction reaches the decode stage. You do this by:
+- Freezing the pc (by setting a write enable signal to 0)
+- Freezing the if/id and id/ex pipeline registers (again, using a write enable signal)
+- Then wait a clock cycle: now you zero out the ex register (using a reset signal), inserting a bubble.
+- Then you set all the signals back to normal: now when the reading instruction reaches the execute stage, the loading instruction is in the writeback stage, and can forward easily.
 
-### Layering??
+### Flushing
 
-- TODO: is it possible to create more complicated situations where you try to stack hazards on top of each other? E.g. some combination of reads and writes that combine in a way that can't be handled via methods described previously in this section.
+This is required for taken branches and all jumps. Branch addresses and conditions are calculated in the execute stage. So when a branch/jump is detected, flushing is done by doing the following:
+- Waiting a clock cycle (to let the branch/jump instruction move out of the execute stage)
+- Zeroing out the if/id and id/ex pipeline registers using a reset signal
 
-## Fetch
+### Layering
 
-- Should mainly contain the PC and instruction memory. It should feed the fetched intruction (and also probably its PC value) forward to the decode stage via a pipeline register.
-- On a branch (suppose there's a branch further in the pipeline, either in the execute or writeback stage), apart from the rest of the pipeline being flushed, the PC should set its value to the new one
-
-## Decode
-
-- This should just be responsible for generating the control signals for the following stages of the pipeline. Here are some ideas for the control signals I'll need:
-    * A 3-bit ALU control signal (taken from funct3 for arithmetic/logic operations, 0 otherwise (assuming all other operations only use the ALU for addition)), along with a modifier bit (to change add into sub and right shift into arithmetic right shift)
-    * Two register read signals and a register write signal & write enable signal
-    * A memory read/write signal. 
-    * Something to choose between a register selection and the PC (for the first ALU input)
-    * Something to choose between a register selection and an immediate value (for the second ALU input)
-    * A signal to decide whether the PC is replaced with PC+4 or the ALU output (actually, this can be generated in the execute stage)
-    * A signal to decide whether the register file write input is PC+4 / alu output / memory output
-    * The data memory read input can always be ALU output, and its write input can always be the second register selection (although perhaps modified when writing a byte/half). Note this means the second register selection should be available even if it's not the second alu input.
-- From what I can see online, this stage also includes steps like sign extending immediates, choosing alu inputs, reading the register file, etc. (i.e. getting everything ready before the execute step). Maybe some things can go in the execute step though.
-- This is also a good stage to send data to the hazard/control unit to decide whether to go ahead with this instruction as usual or if there's a need to flush/stall.
-- If you spot an unconditional branch, what if you could immediately flush and start fetching from the new pc location?
-
-## Execute
-
-- This stage should definitely contain the ALU
-- Consider branching: you'd want to perform a comparison, and also calculate a sum with the PC. The ALU already has its control codes filled by other operations, so you'll probably want to have a separate comparison circuit.
-- You'll probably want to generate a control signal here (the one that decides whether the PC increments or is replaced by the ALU output)
-- This is probably where you'd want to detect a taken branch and flush the pipeline if so. However, it might be a good idea to move the comparison circuit to the decode step, and detect taken branches there, reducing the amount of the pipeline that is flushed on a taken branch.
-- You could move the muxes for choosing alu inputs into this section, so that you can do forwarding more easily. Or you could keep them in the decode stage.
-
-## Memory access
-
-- This should just contain the data memory, and get fed some signals like read address/write input/write address/write enable/etc.
-- Actually, chances are that the read and write address inputs are actually the same (i.e. the memory can't read and write at the same time)
-- When loading in a value, read from the address % 4, then select the output based on if you're reading a word/half/byte, and zero/sign extend it depending on the instruction. 
-    * This needs two control signals: one to decide if you read word/half/byte, and another to decide to zero or sign extend. 
-    * Zero extension is on funct3 = 0x4 or 0x5 (others are 0x0, 0x1, 0x2) so you can zero extend when funct3[2] = 1 and sign extend otherwise
-    * Load byte is 0x0/0x4 (000/100), load half is 0x1/0x5 (001/101), load word is 0x2 (010). So you can choose between reading word/half/byte based on funct3[1:0].
-
-## Writeback
-
-- I think this section can just contain the multiplexer used to choose what to write back into the register file, the output of which can then be fed back into the pipeline stage with the register file.
-- Note: apparently some hardware impementations of register don't work when being read from and written to at the same time, so it might be a good idea to have hazard detection for this (this can probably be solved easily by forwarding).
+Is it possible to create more complicated situations where you try to stack hazards on top of each other?
+- Load-use followed by a conditional branch: e.g. loading a value into rs1, and then using rs1 to perform a conditional branch. This is solved by stalling: i.e. insert a bubble so that when the load instruction is in the writeback stage, the branch instruction is in the execute stage, and you can forward the loaded value back. This can be handled in the exact same way as a normal load-use, but with the added implication that our comparison circuitry remains in the execute stage.
+- ... (any more?)
 
 # Notes from the manuals
 
@@ -92,6 +116,7 @@ Currently a question is how much to put in the decode stage, and how much to put
 - There are 32 registers, each 32 bits, called x0-x31. `x0` is the the zero register, and is always zero. x1-x31 are general purpose.
 - There is only one additional unprivileged register, which is the program counter. There is no dedicated sp/lr/etc.
 - A 'saved register' is one that should remain unchanged after a subroutine has finished executing
+
 ### Convention
 - `x1`: return address (ra)
 - `x2`: stack pointer (sp)
@@ -201,6 +226,7 @@ Attempting to access any other CSR should raise an illegal instruction exception
 
 - Upon reset, the mstatus fields MIE and MPRV are reset to 0. If little endian memory accesses are supported, the mstatus/mstatush field MBE is reset to 0. The pc is set to an implementation-defined reset vector. The mcause register is set to a value indicating the cause of the reset (can set to 0 if the implementation doesn't distinguish between reset conditions). 
 - Split the address space into main memory/IO. Allow byte/halfword/word accesses everywhere. Should I allow misaligned accesses? Disallow instruction fetch from IO regions.
+
 
 # Commands
 

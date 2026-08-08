@@ -143,6 +143,9 @@
     <comp lib="8" loc="(760,520)" name="Text">
       <a name="text" val="Execute"/>
     </comp>
+    <comp lib="8" loc="(778,164)" name="Text">
+      <a name="text" val="Instead of this extra adder, just propagate both PC and PC+4"/>
+    </comp>
     <comp loc="(1110,320)" name="data_mem"/>
     <comp loc="(1140,270)" name="memwb"/>
     <comp loc="(260,280)" name="pc"/>
