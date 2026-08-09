@@ -12,7 +12,7 @@ module instr_mem (
     end
 
     always_ff @(posedge clk) begin
-        instruction <= rom.exists(addr) ? rom[addr]: 32'b0; 
+        instr <= rom.exists(addr) ? rom[addr]: 32'b0; 
     end
 
 endmodule

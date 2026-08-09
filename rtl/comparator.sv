@@ -6,7 +6,7 @@ module comparator (
     output logic result
 );
     always_comb begin
-        case (funct3)
+        unique case (funct3)
             3'b000: result = (a == b);
             3'b001: result = (a != b);
             3'b100: result = ($signed(a) < $signed(b));

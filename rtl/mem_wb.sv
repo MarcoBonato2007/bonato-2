@@ -1,3 +1,4 @@
+`include "encodings.svh"
 
 module mem_wb (
     input logic clk,
@@ -22,7 +23,7 @@ module mem_wb (
             pcplus4_wb <= 32'b0;
             alu_out_wb <= 32'b0;
             mem_out_wb <= 32'b0;
-            rf_in_sel_wb <= 2'b0;
+            rf_in_sel_wb <= RF_SEL_ALU_OUT; // 2'b0
             rd_wb <= 5'b0;
         end else if (we) begin
             pcplus4_wb <= pcplus4_mem;

@@ -1,7 +1,7 @@
 
 module pc (
     input logic clk,
-    input logic rst,
+    input logic rst, // Synchronous
     input logic we,
     input logic [31:0] nextpc,
     output logic [31:0] currentpc

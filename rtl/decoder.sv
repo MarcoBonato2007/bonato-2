@@ -19,7 +19,7 @@ module decoder (
     opcode_e opcode;
     logic [4:0] rd, rs1, rs2;
 
-    assign opcode = instruction[6:0];
+    assign opcode = opcode_e'(instruction[6:0]);
     assign rd = instruction[11:7];
     assign rs1 = instruction[19:15];
     assign rs2 = instruction[24:20];
@@ -146,7 +146,7 @@ module decoder (
                 imm = {instruction[31:12], 12'b0};                
             end
             default: begin
-                // undefined, treat as NOP
+                // undefined, zero out
                 alu_op = 4'b0000;
                 rread1 = 5'b00000;
                 rread2 = 5'b00000;

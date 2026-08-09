@@ -1,14 +1,4 @@
-// - This section feeds the following signals to the ex/mem pipeline register:
-//     * pc+4
-//     * alu output
-//     * rs2 (needed for memory accesses)
-//     * mem_mode
-//     * rf_in_sel
-//     * rd
-
-// Needs reset signal and flush signal
-// Needs write enable signal
-
+`include "encodings.svh"
 
 module ex_mem (
     input logic clk,
@@ -38,8 +28,8 @@ module ex_mem (
             alu_out_mem <= 32'b0;
             rs2_mem <= 32'b0;
             funct3_mem <= 3'b0;
-            mem_mode_mem <= 1'b0;
-            rf_in_sel_mem <= 2'b0;
+            mem_mode_mem <= MEM_READ; // 1'b0
+            rf_in_sel_mem <= RF_SEL_ALU_OUT; // 2'b0
             rd_mem <= 5'b0;
         end else if (we) begin
             pcplus4_mem <= pcplus4_ex;
