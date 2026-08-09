@@ -6,7 +6,7 @@ module alu (
     output logic [31:0] result
 );
     always_comb begin
-        case (funct3)
+        unique case (funct3)
             4'b0000: result = a + b; // ADD
             4'b1000: result = a - b; // SUB
             4'b0001: result = a << b[4:0]; // SLL

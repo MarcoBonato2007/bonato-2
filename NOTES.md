@@ -22,11 +22,12 @@ Note: hazard management implementation details aren't fully worked out yet
 
 ### Decode
 
-- Contains the instruction decoder, and the register file
+- Contains the instruction decoder, the register file, and forward/stall unit
 - The register file directly reads rs1 and rs2 from the decoded instruction. The write select and write data inputs come from the writeback stage later in the pipeline. Note that forwarding happens at the execute stage.
 - The register file has internal forwarding: so when a register x is being written to with data y, any reads to x that happen simultaneously with the write will output y instead of the old value of x.
 - The instruction decoder automatically constructs and sign extends immediates
 - This section feeds the following signals to the id/ex pipeline register:
+    * pc and pc+4
     * rs1_out
     * rs2_out
     * imm
@@ -39,6 +40,8 @@ Note: hazard management implementation details aren't fully worked out yet
     * mem_mode (read or write)
     * rf_in_sel (chooses between PC+4, alu output, and memory output for register file write data)
     * rwrite (which register to write to)
+    * forward_rs1 (from the forwarding/stall unit)
+    * forward_rs2
 
 ### Execute
 
@@ -50,6 +53,7 @@ Note: hazard management implementation details aren't fully worked out yet
     * pc+4
     * alu output
     * rs2 (needed for memory accesses)
+    * funct3
     * mem_mode
     * rf_in_sel
     * rwrite
@@ -71,6 +75,34 @@ Note: hazard management implementation details aren't fully worked out yet
 - The chosen write input and the rwrite signal is then wired to the register file in the decode stage
 
 ## Hazards
+
+### Pseudocode
+
+This is a very first draft of forwarding and stalling pseudocode. The flushing logic will likely be separate. Any kind of hazard detection is ignored when dealing with the zero register.
+
+```sv
+forward_1 = 2'b00 // 2'b00 means no forwarding
+forward_2 = 2'b00
+if (rs1_ex == rwrite_mem && rs1_ex != 5'b00000) begin
+    if (rf_in_sel_mem == 2'b00) begin
+        forward_1 = 2'b01 // forward alu out from memory stage
+    end
+end else if (rs1_ex == rwrite_wb && rs1_ex != 5'b00000) begin
+    if (rf_in_sel_wb == 2'b00) begin
+        forward_1 = 2'b10 // forward alu out from writeback stage
+    end else if (rf_in_sel_wb == 2'b01) begin
+        forward_1 = 2'b11 // forward mem out from writeback stage
+    end
+end
+
+// Copy the same code for rs2
+```
+
+One question is how to implement. There are two options:
+- Generate the forwarding signals when the instruction being forwarded to is in the execute stage. This may reduce the maximum clock speed slightly since, in the execute stage, you would need to wait for the `forward_1` and `forward_2` signals to settle.
+- Detect any forwarding during the decode stage, a nd then stage a write to registers holding the `forward_1` and `forward_2` signals. Then, on the next cycle, those signals will immediately be available. However, I would have to wait for the rs1 and rs2 signals to be decoded.
+
+Although the first option seemed better at first (even though it wasn't the standard), it would require waiting for several signals to settle in the execute stage, whereas the first option can always immediately use signals. So I'll opt for the first option.
 
 ### Types of hazards
 

@@ -1,4 +1,3 @@
-`default_nettype none
 `include "encodings.svh"
 
 module decoder (

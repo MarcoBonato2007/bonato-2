@@ -30,7 +30,7 @@ typedef enum logic {
     ALU_SEL_IMM = 1'b1
 } alu_in2_sel_e;
 
-typedef enum logic[1:0] {
+typedef enum logic [1:0] {
     RF_SEL_ALU_OUT = 2'b00,
     RF_SEL_MEM_OUT = 2'b01,
     RF_SEL_PC_PLUS4 = 2'b10
@@ -40,5 +40,12 @@ typedef enum logic {
     NEXTPC_SEL_PC_PLUS4 = 1'b0,
     NEXTPC_SEL_ALU_OUT = 1'b1
 } nextpc_sel_e;
+
+typedef enum logic [1:0] {
+    FORWARD_NONE = 2'b00,
+    FORWARD_ALU_OUT_MEM = 2'b01,
+    FORWARD_ALU_OUT_WB = 2'b10,
+    FORWARD_MEM_OUT_WB = 2'b11
+} forward_e;
 
 `endif
