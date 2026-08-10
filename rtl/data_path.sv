@@ -1,41 +1,47 @@
+`default_nettype none
 `include "encodings.svh"
+
+// TODO: refactor.
+    // use a packed struct for each pipeline register
+    // Instead of having .sv files for each pipeline reg, just use the packed structs, assigning 0 on flush/rst
+    // Maybe use _d for for next state and _q for current state or smth like that
+    // You probably don't need we and flush for every pipeline reg, remove what you don't need, hardcode the rest
 
 module data_path (
     input logic clk,
     input logic rst
-);
-    // TODO: refactor. Try using struct packed and other methods.
-    
+);    
+    // Fetch stage
 
-    // Signals across the five pipeline stages
-
-    logic pc_we; // from hazard unit
+    logic pc_we;
     logic [31:0] pc_if;
-    logic [31:0] pclus4_if;
+    logic [31:0] pcplus4_if;
     logic [31:0] instr_if;
 
-    // Outputs of if/id
+    // Decode stage
+
     logic [31:0] pc_id;
     logic [31:0] pcplus4_id;
     logic [31:0] instr_id;
-    // Decoder outputs
+
     logic [4:0] rs1_sel_id;
     logic [4:0] rs2_sel_id;
     logic [31:0] imm_id;
     alu_in1_sel_e alu_in1_sel_id;
     alu_in2_sel_e alu_in2_sel_id;
-    logic [3:0] alu_op_id;
+    alu_op_e alu_op_id;
     logic [2:0] funct3_id;
     logic is_cond_id;
     nextpc_sel_e nextpc_sel_id;
     mem_mode_e mem_mode_id;
     rf_in_sel_e rf_in_sel_id;
     logic [4:0] rd_sel_id;
-    // Register file outputs
+
     logic [31:0] rs1_id;
     logic [31:0] rs2_id;
 
-    // Outputs of id/ex
+    // Execute stage
+
     logic [31:0] pc_ex;
     logic [31:0] pcplus4_ex;
     logic [31:0] rs1_ex;
@@ -43,22 +49,23 @@ module data_path (
     logic [31:0] imm_ex;
     alu_in1_sel_e alu_in1_sel_ex;
     alu_in2_sel_e alu_in2_sel_ex;
-    logic [3:0] alu_op_ex;
+    alu_op_e alu_op_ex;
     logic [2:0] funct3_ex;
     logic is_cond_ex;
     nextpc_sel_e nextpc_sel_ex;
     mem_mode_e mem_mode_ex;
     rf_in_sel_e rf_in_sel_ex;
     logic [4:0] rd_sel_ex;
-    // Out of alu
+
     logic [31:0] alu_out_ex;
-    // Out of comparator
+
     logic comparison_result_ex;
-    // Out of forwarding unit
+
     forward_e forward_rs1_ex;
     forward_e forward_rs2_ex;
 
-    // Outputs of ex/mem
+    // Memory stage
+
     logic [31:0] pcplus4_mem;
     logic [31:0] alu_out_mem;
     logic [31:0] rs2_mem;
@@ -66,10 +73,11 @@ module data_path (
     mem_mode_e mem_mode_mem;
     rf_in_sel_e rf_in_sel_mem;
     logic [4:0] rd_sel_mem;
-    // Out of memory
+
     logic [31:0] mem_out_mem;
 
-    // Outputs of mem/wb
+    // Writeback stage
+
     logic [31:0] pcplus4_wb;
     logic [31:0] alu_out_wb;
     logic [31:0] mem_out_wb;
@@ -86,6 +94,8 @@ module data_path (
     logic ex_mem_flush;
     logic mem_wb_we;
     logic mem_wb_flush;
+
+
 
 
 

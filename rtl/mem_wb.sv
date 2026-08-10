@@ -1,3 +1,4 @@
+`default_nettype none
 `include "encodings.svh"
 
 module mem_wb (

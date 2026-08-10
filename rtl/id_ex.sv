@@ -1,3 +1,4 @@
+`default_nettype none
 `include "encodings.svh"
 
 module id_ex (
@@ -15,7 +16,7 @@ module id_ex (
     input logic [31:0] imm_id,
     input alu_in1_sel_e alu_in1_sel_id,
     input alu_in2_sel_e alu_in2_sel_id,
-    input logic [3:0] alu_op_id,
+    input alu_op_e alu_op_id,
     input logic [2:0] funct3_id,
     input logic is_cond_id,
     input nextpc_sel_e nextpc_sel_id,
@@ -32,7 +33,7 @@ module id_ex (
     output logic [31:0] imm_ex,
     output alu_in1_sel_e alu_in1_sel_ex,
     output alu_in2_sel_e alu_in2_sel_ex,
-    output logic [3:0] alu_op_ex,
+    output alu_op_e alu_op_ex,
     output logic [2:0] funct3_ex,
     output logic is_cond_ex,
     output nextpc_sel_e nextpc_sel_ex,
@@ -51,7 +52,7 @@ module id_ex (
             imm_ex <= 32'b0;
             alu_in1_sel_ex <= ALU_SEL_RS1; // 1'b0
             alu_in2_sel_ex <= ALU_SEL_RS2; // 1'b0
-            alu_op_ex <= 4'b0;
+            alu_op_ex <= ALU_ADD; // 4'b0
             funct3_ex <= 3'b0;
             is_cond_ex <= 1'b0;
             nextpc_sel_ex <= NEXTPC_SEL_ALU_OUT; // 1'b0
@@ -74,7 +75,7 @@ module id_ex (
             nextpc_sel_ex <= nextpc_sel_id;
             mem_mode_ex <= mem_mode_id;
             rf_in_sel_ex <= rf_in_sel_id;
-            rd_sel_ex <= rd_id;
+            rd_sel_ex <= rd_sel_id;
         end
     end
     

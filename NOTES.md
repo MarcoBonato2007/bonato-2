@@ -3,10 +3,13 @@ Currently I'm going to implement the RV32I instruction set (excluding ecall/ebre
 # General notes
 
 - Remember to test your implementation with the official repository to make sure it's implemented correctly
-- In future I might add an adder to the decode stage to reduce the penalty for jumps by 1 cycle, although this would complicate hazards (especially if you tried to do this for conditional branches).
 - FENCE, WFI, ECALL and EBREAK will be implemented as NOPs for now.
 - There's no branch prediction at the moment: taken branches or jumps introduce a 2 cycle penalty.
 - Instruction and data memories will be separate (this simplified hazards)
+
+## Possible future changes
+- Introduce an adder to the decode stage to reduce the penalty for jumps by 1 cycle, although this would complicate hazards (especially if you tried to do this for conditional branches, since comparison circuitry should be in the execute stage).
+- Instead of flushing, add a `valid` control signal to each stage. Similarly, instead of setting `rd_sel` or `rs_sel` to 0 when you don't want to read/write from a register, have a register file write enable bit along with bits to indicate whether rs1 and rs2 are read / need reading.
 
 # Pipeline
 

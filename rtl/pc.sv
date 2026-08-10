@@ -1,3 +1,4 @@
+`default_nettype none
 
 module pc (
     input logic clk,

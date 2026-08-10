@@ -1,9 +1,10 @@
+`default_nettype none
 `include "encodings.svh"
 
 module decoder (
     input logic [31:0] instruction,
 
-    output logic [3:0] alu_op,
+    output alu_op_e alu_op,
     output logic [2:0] funct3,
     output logic [4:0] rs1_sel,
     output logic [4:0] rs2_sel,
@@ -29,7 +30,7 @@ module decoder (
 
         unique case (opcode)
             OP_AL_REG: begin
-                alu_op = {instruction[30], funct3};
+                alu_op = alu_op_e'({instruction[30], funct3});
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = rs2_sel_bits;
                 rd_sel = rd_sel_bits;
@@ -42,7 +43,7 @@ module decoder (
                 imm = 32'b0; // dummy value
             end
             OP_AL_IMM: begin
-                alu_op = {(funct3 == 3'b101) ? instruction[30] : 1'b0, funct3};
+                alu_op = alu_op_e'({(funct3 == 3'b101) ? instruction[30] : 1'b0, funct3});
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -55,7 +56,7 @@ module decoder (
                 imm = {{20{instruction[31]}}, instruction[31:20]};                
             end
             OP_LOAD: begin
-                alu_op = 4'b0000; // add
+                alu_op = ALU_ADD;
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -68,7 +69,7 @@ module decoder (
                 imm = {{20{instruction[31]}}, instruction[31:20]};                
             end
             OP_STORE: begin
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = rs2_sel_bits;
                 rd_sel = 5'b00000; // ignore write to register (by writing to x0)
@@ -81,7 +82,7 @@ module decoder (
                 imm = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]};
             end
             OP_BRANCH: begin
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = rs2_sel_bits;
                 rd_sel = 5'b00000;
@@ -94,7 +95,7 @@ module decoder (
                 imm = {{19{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1'b0};
             end
             OP_JAL: begin
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = 5'b00000; 
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -107,7 +108,7 @@ module decoder (
                 imm = {{11{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0};
             end
             OP_JALR: begin
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -120,7 +121,7 @@ module decoder (
                 imm = {{20{instruction[31]}}, instruction[31:20]};                
             end
             OP_LUI: begin
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = 5'b00000;
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -133,7 +134,7 @@ module decoder (
                 imm = {instruction[31:12], 12'b0};                
             end
             OP_AUIPC: begin
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = 5'b00000;
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -147,7 +148,7 @@ module decoder (
             end
             default: begin
                 // undefined, zero out
-                alu_op = 4'b0000;
+                alu_op = ALU_ADD;
                 rs1_sel = 5'b00000;
                 rs2_sel = 5'b00000;
                 rd_sel = 5'b00000;

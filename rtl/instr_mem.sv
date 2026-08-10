@@ -1,3 +1,4 @@
+`default_nettype none
 
 module instr_mem (
     input logic clk,

@@ -1,3 +1,4 @@
+`default_nettype none
 
 module if_id (
     input logic clk,

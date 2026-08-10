@@ -1,3 +1,4 @@
+`default_nettype none
 
 module comparator (
     input logic [31:0] a,
