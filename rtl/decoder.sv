@@ -2,7 +2,7 @@
 `include "encodings.svh"
 
 module decoder (
-    input logic [31:0] instruction,
+    input logic [31:0] instr,
 
     output alu_op_e alu_op,
     output logic [2:0] funct3,
@@ -20,17 +20,17 @@ module decoder (
     opcode_e opcode;
     logic [4:0] rd_sel_bits, rs1_sel_bits, rs2_sel_bits;
 
-    assign opcode = opcode_e'(instruction[6:0]);
-    assign rd_sel_bits = instruction[11:7];
-    assign rs1_sel_bits = instruction[19:15];
-    assign rs2_sel_bits = instruction[24:20];
+    assign opcode = opcode_e'(instr[6:0]);
+    assign rd_sel_bits = instr[11:7];
+    assign rs1_sel_bits = instr[19:15];
+    assign rs2_sel_bits = instr[24:20];
 
     always_comb begin
-        funct3 = instruction[14:12];
+        funct3 = instr[14:12];
 
         unique case (opcode)
             OP_AL_REG: begin
-                alu_op = alu_op_e'({instruction[30], funct3});
+                alu_op = alu_op_e'({instr[30], funct3});
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = rs2_sel_bits;
                 rd_sel = rd_sel_bits;
@@ -43,7 +43,7 @@ module decoder (
                 imm = 32'b0; // dummy value
             end
             OP_AL_IMM: begin
-                alu_op = alu_op_e'({(funct3 == 3'b101) ? instruction[30] : 1'b0, funct3});
+                alu_op = alu_op_e'({(funct3 == 3'b101) ? instr[30] : 1'b0, funct3});
                 rs1_sel = rs1_sel_bits;
                 rs2_sel = 5'b00000;
                 rd_sel = rd_sel_bits;
@@ -53,7 +53,7 @@ module decoder (
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_PC_PLUS4;
-                imm = {{20{instruction[31]}}, instruction[31:20]};                
+                imm = {{20{instr[31]}}, instr[31:20]};                
             end
             OP_LOAD: begin
                 alu_op = ALU_ADD;
@@ -66,7 +66,7 @@ module decoder (
                 rf_in_sel = RF_SEL_MEM_OUT;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_PC_PLUS4;
-                imm = {{20{instruction[31]}}, instruction[31:20]};                
+                imm = {{20{instr[31]}}, instr[31:20]};                
             end
             OP_STORE: begin
                 alu_op = ALU_ADD;
@@ -79,7 +79,7 @@ module decoder (
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_PC_PLUS4;
-                imm = {{20{instruction[31]}}, instruction[31:25], instruction[11:7]};
+                imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
             end
             OP_BRANCH: begin
                 alu_op = ALU_ADD;
@@ -92,7 +92,7 @@ module decoder (
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b1;
                 nextpc_sel = NEXTPC_SEL_ALU_OUT;
-                imm = {{19{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1'b0};
+                imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
             end
             OP_JAL: begin
                 alu_op = ALU_ADD;
@@ -105,7 +105,7 @@ module decoder (
                 rf_in_sel = RF_SEL_PC_PLUS4;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_ALU_OUT;
-                imm = {{11{instruction[31]}}, instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1'b0};
+                imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
             end
             OP_JALR: begin
                 alu_op = ALU_ADD;
@@ -118,7 +118,7 @@ module decoder (
                 rf_in_sel = RF_SEL_PC_PLUS4;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_ALU_OUT;
-                imm = {{20{instruction[31]}}, instruction[31:20]};                
+                imm = {{20{instr[31]}}, instr[31:20]};                
             end
             OP_LUI: begin
                 alu_op = ALU_ADD;
@@ -131,7 +131,7 @@ module decoder (
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_PC_PLUS4;
-                imm = {instruction[31:12], 12'b0};                
+                imm = {instr[31:12], 12'b0};                
             end
             OP_AUIPC: begin
                 alu_op = ALU_ADD;
@@ -144,7 +144,7 @@ module decoder (
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
                 nextpc_sel = NEXTPC_SEL_PC_PLUS4;
-                imm = {instruction[31:12], 12'b0};                
+                imm = {instr[31:12], 12'b0};                
             end
             default: begin
                 // undefined, zero out

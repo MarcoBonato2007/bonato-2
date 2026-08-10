@@ -6,7 +6,7 @@ module hazard (
     input logic [4:0] rs1_sel_id,
     input logic [4:0] rs2_sel_id,
     input logic [4:0] rd_sel_ex,
-    input rf_in_sel_e rf_in_sel_ex_cond,
+    input rf_in_sel_e rf_in_sel_ex,
 
     // Branch detection (flushing)
     input nextpc_sel_e nextpc_sel_ex_cond,
@@ -29,7 +29,7 @@ module hazard (
         end
         // Stall on a load-use hazard
         else if (
-            rf_in_sel_ex_cond == RF_SEL_MEM_OUT
+            rf_in_sel_ex == RF_SEL_MEM_OUT
             && rd_sel_ex != 5'b0
             && (rs1_sel_id == rd_sel_ex || rs2_sel_id == rd_sel_ex)
         ) begin

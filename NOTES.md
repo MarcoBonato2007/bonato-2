@@ -8,6 +8,7 @@ Currently I'm going to implement the RV32I instruction set (excluding ecall/ebre
 - Instruction and data memories will be separate (this simplified hazards)
 
 ## Possible future changes
+- Change the next pc select (and other 1 bit signals) to not be enums, instead rename (e.g. is_nextpc_branch)
 - Introduce an adder to the decode stage to reduce the penalty for jumps by 1 cycle, although this would complicate hazards (especially if you tried to do this for conditional branches, since comparison circuitry should be in the execute stage).
 - Instead of flushing, add a `valid` control signal to each stage. Similarly, instead of setting `rd_sel` or `rs_sel` to 0 when you don't want to read/write from a register, have a register file write enable bit along with bits to indicate whether rs1 and rs2 are read / need reading.
 
