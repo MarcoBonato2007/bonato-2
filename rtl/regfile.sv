@@ -1,22 +1,22 @@
 
 module regfile (
     input logic clk,
-    input logic [4:0] reg1_select,
-    input logic [4:0] reg2_select,
-    input logic [4:0] write_select, // set to 0 for no write
+    input logic [4:0] rs1_sel,
+    input logic [4:0] rs2_sel,
+    input logic [4:0] rd_sel, // set to 0 for no write
     input logic [31:0] write_data,
-    output logic [31:0] reg1_out,
-    output logic [31:0] reg2_out
+    output logic [31:0] rs1,
+    output logic [31:0] rs2
 );
     logic [31:0] registers [31:0];
 
     // Reads with internal forwarding
-    assign reg1_out = (reg1_select == 5'b0) ? 32'b0 : (reg1_select == write_select ? write_data : registers[reg1_select]);
-    assign reg2_out = (reg2_select == 5'b0) ? 32'b0 : (reg2_select == write_select ? write_data : registers[reg2_select]);
+    assign rs1 = (rs1_sel == 5'b0) ? 32'b0 : (rs1_sel == rd_sel ? write_data : registers[rs1_sel]);
+    assign rs2 = (rs2_sel == 5'b0) ? 32'b0 : (rs2_sel == rd_sel ? write_data : registers[rs2_sel]);
 
     always_ff @(posedge clk) begin
-        if (write_select != 5'b0) begin
-            registers[write_select] <= write_data; // Write to the selected register
+        if (rd_sel != 5'b0) begin
+            registers[rd_sel] <= write_data; // Write to the selected register
         end
     end
     

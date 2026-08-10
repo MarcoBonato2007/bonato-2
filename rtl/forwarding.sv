@@ -3,9 +3,9 @@
 module forwarding (
     input logic [4:0] rs1_sel_ex,
     input logic [4:0] rs2_sel_ex,
-    input logic [4:0] rwrite_mem,
+    input logic [4:0] rd_sel_mem,
     input rf_in_sel_e rf_in_sel_mem,
-    input logic [4:0] rwrite_wb,
+    input logic [4:0] rd_sel_wb,
     input rf_in_sel_e rf_in_sel_wb,
 
     output forward_e forward_rs1,
@@ -17,11 +17,11 @@ module forwarding (
     ); 
         get_forward = FORWARD_NONE;
         
-        if (rs_sel_ex == rwrite_mem && rs_sel_ex != 5'b0) begin
+        if (rs_sel_ex == rd_sel_mem && rs_sel_ex != 5'b0) begin
             if (rf_in_sel_mem == RF_SEL_ALU_OUT) begin
                 get_forward = FORWARD_ALU_OUT_MEM;
             end
-        end else if (rs_sel_ex == rwrite_wb && rs_sel_ex != 5'b0) begin
+        end else if (rs_sel_ex == rd_sel_wb && rs_sel_ex != 5'b0) begin
             if (rf_in_sel_wb == RF_SEL_ALU_OUT) begin
                 get_forward = FORWARD_ALU_OUT_WB;
             end else if (rf_in_sel_wb == RF_SEL_MEM_OUT) begin

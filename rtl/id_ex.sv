@@ -21,7 +21,7 @@ module id_ex (
     input nextpc_sel_e nextpc_sel_id,
     input mem_mode_e mem_mode_id,
     input rf_in_sel_e rf_in_sel_id,
-    input logic [4:0] rd_id,
+    input logic [4:0] rd_sel_id,
 
     output logic [31:0] pc_ex,
     output logic [31:0] pcplus4_ex,
@@ -38,7 +38,7 @@ module id_ex (
     output nextpc_sel_e nextpc_sel_ex,
     output mem_mode_e mem_mode_ex,
     output rf_in_sel_e rf_in_sel_ex,
-    output logic [4:0] rd_ex
+    output logic [4:0] rd_sel_ex
 );
     always_ff @(posedge clk) begin
         if (flush || rst) begin
@@ -57,7 +57,7 @@ module id_ex (
             nextpc_sel_ex <= NEXTPC_SEL_ALU_OUT; // 1'b0
             mem_mode_ex <= MEM_READ; // 1'b0
             rf_in_sel_ex <= RF_SEL_ALU_OUT; // 2'b0
-            rd_ex <= 5'b0;
+            rd_sel_ex <= 5'b0;
         end else if (we) begin
             pc_ex <= pc_id;
             pcplus4_ex <= pcplus4_id;
@@ -74,7 +74,7 @@ module id_ex (
             nextpc_sel_ex <= nextpc_sel_id;
             mem_mode_ex <= mem_mode_id;
             rf_in_sel_ex <= rf_in_sel_id;
-            rd_ex <= rd_id;
+            rd_sel_ex <= rd_id;
         end
     end
     

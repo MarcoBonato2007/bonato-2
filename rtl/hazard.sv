@@ -4,8 +4,7 @@ module hazard (
     // For load-use detection
     input logic [4:0] rs1_sel_id,
     input logic [4:0] rs2_sel_id,
-    // _cond means "after the conditional check has been applied" (in the execute stage)
-    input logic [4:0] rwrite_ex_cond,
+    input logic [4:0] rd_sel_ex,
     input rf_in_sel_e rf_in_sel_ex_cond,
 
     // Branch detection (flushing)
@@ -30,8 +29,8 @@ module hazard (
         // Stall on a load-use hazard
         else if (
             rf_in_sel_ex_cond == RF_SEL_MEM_OUT
-            && rwrite_ex_cond != 5'b0
-            && (rs1_sel_id == rwrite_ex_cond || rs2_sel_id == rwrite_ex_cond)
+            && rd_sel_ex != 5'b0
+            && (rs1_sel_id == rd_sel_ex || rs2_sel_id == rd_sel_ex)
         ) begin
             pc_we = 1'b0;
             if_id_we = 1'b0;

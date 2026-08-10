@@ -48,4 +48,10 @@ typedef enum logic [1:0] {
     FORWARD_MEM_OUT_WB = 2'b11
 } forward_e;
 
+typedef enum logic [1:0] {
+    SIZE_BYTE = 2'b00,
+    SIZE_HALF = 2'b01,
+    SIZE_WORD = 2'b10
+} size_e;
+
 `endif
