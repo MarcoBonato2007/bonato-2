@@ -1,8 +1,9 @@
 `default_nettype none
 `include "encodings.svh"
 
-// TODO: cleanup, style choices, consider the readability
-// use _idx and _data when referring to registers
+// TODO:
+    // redo diagram in logisim evo, try making it as compact as possible, use standard appearances
+    // reorder signal declarations everywhere, make it match the diagram
 
 module data_path (
     input logic clk,
@@ -23,11 +24,11 @@ module data_path (
     typedef struct packed {
         logic [31:0] pc;
         logic [31:0] pcplus4;
-        logic [4:0] rs1_sel;
-        logic [4:0] rs2_sel;
-        logic [31:0] rs1;
-        logic [31:0] rs2;
-        logic [4:0] rd_sel;
+        logic [4:0] rs1;
+        logic [4:0] rs2;
+        logic [31:0] rs1_val;
+        logic [31:0] rs2_val;
+        logic [4:0] rd;
         logic [31:0] imm;
         logic [2:0] funct3;
         alu_in1_sel_e alu_in1_sel;
@@ -44,8 +45,8 @@ module data_path (
     typedef struct packed {
         logic [31:0] pcplus4;
         logic [31:0] alu_out;
-        logic [31:0] rs2;
-        logic [4:0] rd_sel;
+        logic [31:0] rs2_val;
+        logic [4:0] rd;
         logic [2:0] funct3;
         mem_mode_e mem_mode;
         rf_in_sel_e rf_in_sel;
@@ -56,27 +57,27 @@ module data_path (
         logic [31:0] pcplus4;
         logic [31:0] alu_out;
         logic [31:0] mem_out;
-        logic [4:0] rd_sel;
+        logic [4:0] rd;
         rf_in_sel_e rf_in_sel;
     } mem_wb_t;
     mem_wb_t mem_wb_d, mem_wb_q;
 
-    // Declare signals which pass between pipeline registers
+    // Declare signals which pass directly between pipeline registers
     assign id_ex_d.pc = if_id_q.pc;
     assign id_ex_d.pcplus4 = if_id_q.pcplus4;
     assign ex_mem_d.pcplus4 = id_ex_q.pcplus4;
     assign ex_mem_d.mem_mode = id_ex_q.mem_mode;
     assign ex_mem_d.funct3 = id_ex_q.funct3;
-    assign ex_mem_d.rs2 = id_ex_q.rs2;
+    assign ex_mem_d.rs2_val = id_ex_q.rs2_val;
     assign ex_mem_d.rf_in_sel = id_ex_q.rf_in_sel;
-    assign ex_mem_d.rd_sel = id_ex_q.rd_sel;
+    assign ex_mem_d.rd = id_ex_q.rd;
     assign mem_wb_d.pcplus4 = ex_mem_q.pcplus4;
     assign mem_wb_d.alu_out = ex_mem_q.alu_out;
     assign mem_wb_d.rf_in_sel = ex_mem_q.rf_in_sel;
-    assign mem_wb_d.rd_sel = ex_mem_q.rd_sel;
+    assign mem_wb_d.rd = ex_mem_q.rd;
 
     // Intermediate signals require calculation, or are between two modules only
-    // Other signals are wired directly with pipeline registers
+    // Other signals are wired with pipeline registers
 
     // Fetch stage intermediate signals
     logic pc_we;
@@ -85,10 +86,11 @@ module data_path (
     // Execute stage intermediate signals
     forward_e forward_rs1_ex;
     forward_e forward_rs2_ex;
-    logic [31:0] rs1_forwarded_ex;
-    logic [31:0] rs2_forwarded_ex;
+    logic [31:0] rs1_val_forwarded_ex;
+    logic [31:0] rs2_val_forwarded_ex;
     logic [31:0] alu_in1_ex;
     logic [31:0] alu_in2_ex;
+
     logic comparison_result_ex;
     nextpc_sel_e nextpc_sel_ex_cond;
 
@@ -114,9 +116,9 @@ module data_path (
         .instr (if_id_q.instr),
         .alu_op (id_ex_d.alu_op),
         .funct3 (id_ex_d.funct3),
-        .rs1_sel (id_ex_d.rs1_sel),
-        .rs2_sel (id_ex_d.rs2_sel),
-        .rd_sel (id_ex_d.rd_sel),
+        .rs1 (id_ex_d.rs1),
+        .rs2 (id_ex_d.rs2),
+        .rd (id_ex_d.rd),
         .mem_mode (id_ex_d.mem_mode),
         .alu_in1_sel (id_ex_d.alu_in1_sel),
         .alu_in2_sel (id_ex_d.alu_in2_sel),
@@ -128,24 +130,24 @@ module data_path (
 
     regfile regfile_i (
         .clk (clk),
-        .rs1_sel (id_ex_d.rs1_sel),
-        .rs2_sel (id_ex_d.rs2_sel),
-        .rd_sel (mem_wb_q.rd_sel),
-        .write_data (rf_write_data_wb),
         .rs1 (id_ex_d.rs1),
-        .rs2 (id_ex_d.rs2)
+        .rs2 (id_ex_d.rs2),
+        .rd (mem_wb_q.rd),
+        .write_data (rf_write_data_wb),
+        .rs1_val (id_ex_d.rs1_val),
+        .rs2_val (id_ex_d.rs2_val)
     );
 
     alu alu_i (
         .a (alu_in1_ex),
         .b (alu_in2_ex),
         .alu_op (id_ex_q.alu_op),
-        .result (ex_mem_d.alu_out)
+        .alu_out (ex_mem_d.alu_out)
     );
 
     comparator comparator_i (
-        .a (id_ex_q.rs1),
-        .b (id_ex_q.rs2),
+        .a (id_ex_q.rs1_val),
+        .b (id_ex_q.rs2_val),
         .funct3 (id_ex_q.funct3),
         .result (comparison_result_ex)
     );
@@ -155,25 +157,25 @@ module data_path (
         .addr (ex_mem_q.alu_out),
         .mem_mode (ex_mem_q.mem_mode),
         .funct3 (ex_mem_q.funct3),
-        .write_data (ex_mem_q.rs2),
+        .write_data (ex_mem_q.rs2_val),
         .mem_out (mem_wb_d.mem_out)
     );
 
     forwarding forward_i (
-        .rs1_sel_ex (id_ex_q.rs1_sel),
-        .rs2_sel_ex (id_ex_q.rs2_sel),
-        .rd_sel_mem (ex_mem_q.rd_sel),
+        .rs1_ex (id_ex_q.rs1),
+        .rs2_ex (id_ex_q.rs2),
+        .rd_mem (ex_mem_q.rd),
         .rf_in_sel_mem (ex_mem_q.rf_in_sel),
-        .rd_sel_wb (mem_wb_q.rd_sel),
+        .rd_wb (mem_wb_q.rd),
         .rf_in_sel_wb (mem_wb_q.rf_in_sel),
         .forward_rs1 (forward_rs1_ex),
         .forward_rs2 (forward_rs2_ex)
     );
 
     hazard hazard_i (
-        .rs1_sel_id (id_ex_d.rs1_sel),
-        .rs2_sel_id (id_ex_d.rs2_sel),
-        .rd_sel_ex (id_ex_q.rd_sel),
+        .rs1_id (id_ex_d.rs1),
+        .rs2_id (id_ex_d.rs2),
+        .rd_ex (id_ex_q.rd),
         .rf_in_sel_ex (id_ex_q.rf_in_sel),
         .nextpc_sel_ex_cond (nextpc_sel_ex_cond),
         .if_id_we (if_id_we),
@@ -186,25 +188,25 @@ module data_path (
     always_comb begin
         // forwarding
         unique case (forward_rs1_ex) 
-            FORWARD_NONE: rs1_forwarded_ex = id_ex_q.rs1;
-            FORWARD_ALU_OUT_MEM: rs1_forwarded_ex = ex_mem_q.alu_out;
-            FORWARD_ALU_OUT_WB: rs1_forwarded_ex = mem_wb_q.alu_out;
-            FORWARD_MEM_OUT_WB: rs1_forwarded_ex = mem_wb_q.mem_out;
+            FORWARD_NONE: rs1_val_forwarded_ex = id_ex_q.rs1_val;
+            FORWARD_ALU_OUT_MEM: rs1_val_forwarded_ex = ex_mem_q.alu_out;
+            FORWARD_ALU_OUT_WB: rs1_val_forwarded_ex = mem_wb_q.alu_out;
+            FORWARD_MEM_OUT_WB: rs1_val_forwarded_ex = mem_wb_q.mem_out;
         endcase
         unique case (forward_rs2_ex) 
-            FORWARD_NONE: rs2_forwarded_ex = id_ex_q.rs2;
-            FORWARD_ALU_OUT_MEM: rs2_forwarded_ex = ex_mem_q.alu_out;
-            FORWARD_ALU_OUT_WB: rs2_forwarded_ex = mem_wb_q.alu_out;
-            FORWARD_MEM_OUT_WB: rs2_forwarded_ex = mem_wb_q.mem_out;
+            FORWARD_NONE: rs2_val_forwarded_ex = id_ex_q.rs2_val;
+            FORWARD_ALU_OUT_MEM: rs2_val_forwarded_ex = ex_mem_q.alu_out;
+            FORWARD_ALU_OUT_WB: rs2_val_forwarded_ex = mem_wb_q.alu_out;
+            FORWARD_MEM_OUT_WB: rs2_val_forwarded_ex = mem_wb_q.mem_out;
         endcase
 
         // alu inputs
         unique case (id_ex_q.alu_in1_sel)   
-            ALU_SEL_RS1: alu_in1_ex = rs1_forwarded_ex;
+            ALU_SEL_RS1: alu_in1_ex = rs1_val_forwarded_ex;
             ALU_SEL_PC: alu_in1_ex = id_ex_q.pc;
         endcase
         unique case (id_ex_q.alu_in2_sel)   
-            ALU_SEL_RS2: alu_in2_ex = rs2_forwarded_ex;
+            ALU_SEL_RS2: alu_in2_ex = rs2_val_forwarded_ex;
             ALU_SEL_IMM: alu_in2_ex = id_ex_q.imm;
         endcase
 

@@ -6,9 +6,9 @@ module decoder (
 
     output alu_op_e alu_op,
     output logic [2:0] funct3,
-    output logic [4:0] rs1_sel,
-    output logic [4:0] rs2_sel,
-    output logic [4:0] rd_sel,
+    output logic [4:0] rs1,
+    output logic [4:0] rs2,
+    output logic [4:0] rd,
     output mem_mode_e mem_mode,
     output alu_in1_sel_e alu_in1_sel,
     output alu_in2_sel_e alu_in2_sel,
@@ -18,12 +18,12 @@ module decoder (
     output logic [31:0] imm
 );  
     opcode_e opcode;
-    logic [4:0] rd_sel_bits, rs1_sel_bits, rs2_sel_bits;
+    logic [4:0] rd_bits, rs1_bits, rs2_bits;
 
     assign opcode = opcode_e'(instr[6:0]);
-    assign rd_sel_bits = instr[11:7];
-    assign rs1_sel_bits = instr[19:15];
-    assign rs2_sel_bits = instr[24:20];
+    assign rd_bits = instr[11:7];
+    assign rs1_bits = instr[19:15];
+    assign rs2_bits = instr[24:20];
 
     always_comb begin
         funct3 = instr[14:12];
@@ -31,9 +31,9 @@ module decoder (
         unique case (opcode)
             OP_AL_REG: begin
                 alu_op = alu_op_e'({instr[30], funct3});
-                rs1_sel = rs1_sel_bits;
-                rs2_sel = rs2_sel_bits;
-                rd_sel = rd_sel_bits;
+                rs1 = rs1_bits;
+                rs2 = rs2_bits;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_RS2;
@@ -44,9 +44,9 @@ module decoder (
             end
             OP_AL_IMM: begin
                 alu_op = alu_op_e'({(funct3 == 3'b101) ? instr[30] : 1'b0, funct3});
-                rs1_sel = rs1_sel_bits;
-                rs2_sel = 5'b00000;
-                rd_sel = rd_sel_bits;
+                rs1 = rs1_bits;
+                rs2 = 5'b00000;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -57,9 +57,9 @@ module decoder (
             end
             OP_LOAD: begin
                 alu_op = ALU_ADD;
-                rs1_sel = rs1_sel_bits;
-                rs2_sel = 5'b00000;
-                rd_sel = rd_sel_bits;
+                rs1 = rs1_bits;
+                rs2 = 5'b00000;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -70,9 +70,9 @@ module decoder (
             end
             OP_STORE: begin
                 alu_op = ALU_ADD;
-                rs1_sel = rs1_sel_bits;
-                rs2_sel = rs2_sel_bits;
-                rd_sel = 5'b00000; // ignore write to register (by writing to x0)
+                rs1 = rs1_bits;
+                rs2 = rs2_bits;
+                rd = 5'b00000; // ignore write to register (by writing to x0)
                 mem_mode = MEM_WRITE;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -83,9 +83,9 @@ module decoder (
             end
             OP_BRANCH: begin
                 alu_op = ALU_ADD;
-                rs1_sel = rs1_sel_bits;
-                rs2_sel = rs2_sel_bits;
-                rd_sel = 5'b00000;
+                rs1 = rs1_bits;
+                rs2 = rs2_bits;
+                rd = 5'b00000;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_PC;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -96,9 +96,9 @@ module decoder (
             end
             OP_JAL: begin
                 alu_op = ALU_ADD;
-                rs1_sel = 5'b00000; 
-                rs2_sel = 5'b00000;
-                rd_sel = rd_sel_bits;
+                rs1 = 5'b00000; 
+                rs2 = 5'b00000;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_PC;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -109,9 +109,9 @@ module decoder (
             end
             OP_JALR: begin
                 alu_op = ALU_ADD;
-                rs1_sel = rs1_sel_bits;
-                rs2_sel = 5'b00000;
-                rd_sel = rd_sel_bits;
+                rs1 = rs1_bits;
+                rs2 = 5'b00000;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -122,9 +122,9 @@ module decoder (
             end
             OP_LUI: begin
                 alu_op = ALU_ADD;
-                rs1_sel = 5'b00000;
-                rs2_sel = 5'b00000;
-                rd_sel = rd_sel_bits;
+                rs1 = 5'b00000;
+                rs2 = 5'b00000;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -135,9 +135,9 @@ module decoder (
             end
             OP_AUIPC: begin
                 alu_op = ALU_ADD;
-                rs1_sel = 5'b00000;
-                rs2_sel = 5'b00000;
-                rd_sel = rd_sel_bits;
+                rs1 = 5'b00000;
+                rs2 = 5'b00000;
+                rd = rd_bits;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_PC;
                 alu_in2_sel = ALU_SEL_IMM;
@@ -149,9 +149,9 @@ module decoder (
             default: begin
                 // undefined, zero out
                 alu_op = ALU_ADD;
-                rs1_sel = 5'b00000;
-                rs2_sel = 5'b00000;
-                rd_sel = 5'b00000;
+                rs1 = 5'b00000;
+                rs2 = 5'b00000;
+                rd = 5'b00000;
                 mem_mode = MEM_READ;
                 alu_in1_sel = ALU_SEL_RS1;
                 alu_in2_sel = ALU_SEL_RS2;

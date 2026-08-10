@@ -288,13 +288,23 @@ show -format svg -prefix and_gate
 
 `
 yosys -p "
-read_verilog -sv decoder.sv;
-hierarchy -top decoder;
+read_verilog -sv data_path.sv;
+hierarchy -top data_path;
 proc;
 opt;
-write_json decoder.json
+write_json data_path.json
 "
 `
+
+yosys -p "
+read_verilog -sv data_path.sv;
+hierarchy -top data_path;
+proc;
+flatten;
+expose -shared *;
+write_json data_path.json
+"
+
 
 `netlistsvg decoder.json -o decoder.svg`
 
