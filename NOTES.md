@@ -296,15 +296,21 @@ write_json data_path.json
 "
 `
 
-yosys -p "
-read_verilog -sv data_path.sv;
+`netlistsvg data_path.json -o data_path.svg`
+
+## Yosys command for datapath
+
+First comment out the instruction and data memories
+
+`
+yosys -p "                                                      
+read_verilog -sv -I. data_path.sv alu.sv pc.sv hazard.sv decoder.sv forwarding.sv regfile.sv comparator.sv;
+read_verilog -lib -sv data_mem.sv instr_mem.sv;
 hierarchy -top data_path;
-proc;
-flatten;
-expose -shared *;
+proc;                    
 write_json data_path.json
 "
+`
 
-
-`netlistsvg decoder.json -o decoder.svg`
+`netlistsvg data_path.json -o data_path.svg`
 

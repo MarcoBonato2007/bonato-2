@@ -146,8 +146,8 @@ module data_path (
     );
 
     comparator comparator_i (
-        .a (id_ex_q.rs1_val),
-        .b (id_ex_q.rs2_val),
+        .a (rs1_val_forwarded_ex),
+        .b (rs1_val_forwarded_ex),
         .funct3 (id_ex_q.funct3),
         .result (comparison_result_ex)
     );
