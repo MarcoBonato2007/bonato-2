@@ -1,10 +1,6 @@
 `default_nettype none
 `include "encodings.svh"
 
-// TODO:
-    // redo diagram in logisim evo, try making it as compact as possible, use standard appearances
-    // reorder signal declarations everywhere, make it match the diagram
-
 module data_path (
     input logic clk,
     input logic rst
@@ -35,7 +31,7 @@ module data_path (
         alu_in2_sel_e alu_in2_sel;
         alu_op_e alu_op;
         logic is_cond;
-        nextpc_sel_e nextpc_sel;
+        logic nextpc_is_branch;
         mem_mode_e mem_mode;
         rf_in_sel_e rf_in_sel;
     } id_ex_t;
@@ -92,7 +88,7 @@ module data_path (
     logic [31:0] alu_in2_ex;
 
     logic comparison_result_ex;
-    nextpc_sel_e nextpc_sel_ex_cond;
+    logic nextpc_is_branch_ex_cond;
 
     // Writeback stage intermediate signals
     logic [31:0] rf_write_data_wb;
@@ -124,7 +120,7 @@ module data_path (
         .alu_in2_sel (id_ex_d.alu_in2_sel),
         .rf_in_sel (id_ex_d.rf_in_sel),
         .is_cond (id_ex_d.is_cond),
-        .nextpc_sel (id_ex_d.nextpc_sel),
+        .nextpc_is_branch (id_ex_d.nextpc_is_branch),
         .imm (id_ex_d.imm)
     );
 
@@ -177,7 +173,7 @@ module data_path (
         .rs2_id (id_ex_d.rs2),
         .rd_ex (id_ex_q.rd),
         .rf_in_sel_ex (id_ex_q.rf_in_sel),
-        .nextpc_sel_ex_cond (nextpc_sel_ex_cond),
+        .nextpc_is_branch_ex_cond (nextpc_is_branch_ex_cond),
         .if_id_we (if_id_we),
         .if_id_flush (if_id_flush),
         .id_ex_flush (id_ex_flush),
@@ -211,8 +207,8 @@ module data_path (
         endcase
 
         if_id_d.pcplus4 = if_id_d.pc + 4;
-        nextpc_sel_ex_cond = nextpc_sel_e'((id_ex_q.nextpc_sel && (!id_ex_q.is_cond || (id_ex_q.is_cond && comparison_result_ex))));
-        nextpc_if = (nextpc_sel_ex_cond == NEXTPC_SEL_ALU_OUT) ? ex_mem_d.alu_out : if_id_d.pcplus4;
+        nextpc_is_branch_ex_cond = (id_ex_q.nextpc_is_branch && (!id_ex_q.is_cond || (id_ex_q.is_cond && comparison_result_ex)));
+        nextpc_if = nextpc_is_branch_ex_cond ? ex_mem_d.alu_out : if_id_d.pcplus4;
         
         // register file write
         unique case (mem_wb_q.rf_in_sel)

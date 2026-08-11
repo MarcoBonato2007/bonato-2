@@ -50,11 +50,6 @@ typedef enum logic [1:0] {
     RF_SEL_PC_PLUS4 = 2'b10
 } rf_in_sel_e;
 
-typedef enum logic {
-    NEXTPC_SEL_PC_PLUS4 = 1'b0,
-    NEXTPC_SEL_ALU_OUT = 1'b1
-} nextpc_sel_e;
-
 typedef enum logic [1:0] {
     FORWARD_NONE = 2'b00,
     FORWARD_ALU_OUT_MEM = 2'b01,

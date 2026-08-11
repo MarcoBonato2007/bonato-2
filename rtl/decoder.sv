@@ -14,7 +14,7 @@ module decoder (
     output alu_in2_sel_e alu_in2_sel,
     output rf_in_sel_e rf_in_sel,
     output logic is_cond, // set to 1 for branches
-    output nextpc_sel_e nextpc_sel,
+    output logic nextpc_is_branch,
     output logic [31:0] imm
 );  
     opcode_e opcode;
@@ -39,7 +39,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_RS2;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = 32'b0; // dummy value
             end
             OP_AL_IMM: begin
@@ -52,7 +52,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = {{20{instr[31]}}, instr[31:20]};                
             end
             OP_LOAD: begin
@@ -65,7 +65,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_MEM_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = {{20{instr[31]}}, instr[31:20]};                
             end
             OP_STORE: begin
@@ -78,7 +78,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
             end
             OP_BRANCH: begin
@@ -91,7 +91,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b1;
-                nextpc_sel = NEXTPC_SEL_ALU_OUT;
+                nextpc_is_branch = 1'b1;
                 imm = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
             end
             OP_JAL: begin
@@ -104,7 +104,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_PC_PLUS4;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_ALU_OUT;
+                nextpc_is_branch = 1'b1;
                 imm = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
             end
             OP_JALR: begin
@@ -117,7 +117,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_PC_PLUS4;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_ALU_OUT;
+                nextpc_is_branch = 1'b1;
                 imm = {{20{instr[31]}}, instr[31:20]};                
             end
             OP_LUI: begin
@@ -130,7 +130,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = {instr[31:12], 12'b0};                
             end
             OP_AUIPC: begin
@@ -143,7 +143,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_IMM;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = {instr[31:12], 12'b0};                
             end
             default: begin
@@ -157,7 +157,7 @@ module decoder (
                 alu_in2_sel = ALU_SEL_RS2;
                 rf_in_sel = RF_SEL_ALU_OUT;
                 is_cond = 1'b0;
-                nextpc_sel = NEXTPC_SEL_PC_PLUS4;
+                nextpc_is_branch = 1'b0;
                 imm = 32'b0;                
             end
         endcase

@@ -9,7 +9,7 @@ module hazard (
     input rf_in_sel_e rf_in_sel_ex,
 
     // Branch detection (flushing)
-    input nextpc_sel_e nextpc_sel_ex_cond,
+    input logic nextpc_is_branch_ex_cond,
 
     output logic if_id_we,
     output logic if_id_flush,
@@ -23,7 +23,7 @@ module hazard (
         pc_we = 1'b1;
         
         // Flush on taken branches
-        if (nextpc_sel_ex_cond == NEXTPC_SEL_ALU_OUT) begin
+        if (nextpc_is_branch_ex_cond) begin
             if_id_flush = 1'b1;
             id_ex_flush = 1'b1;
         end
