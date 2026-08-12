@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 `default_nettype none
 
 module pc (
@@ -11,7 +12,8 @@ module pc (
         if (rst) begin
             currentpc <= 32'b0;
         end else if (we) begin
-            currentpc <= nextpc;
+            // quietly handle pc alignment, may trap in future
+            currentpc <= nextpc[31:0];
         end
     end
     

@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 `default_nettype none
 `include "encodings.svh"
 
@@ -103,7 +104,6 @@ module data_path (
     );
 
     instr_mem instr_mem_i (
-        .clk (clk),
         .addr (if_id_d.pc),
         .instr (if_id_d.instr)
     );
@@ -208,7 +208,7 @@ module data_path (
 
         if_id_d.pcplus4 = if_id_d.pc + 4;
         nextpc_is_branch_ex_cond = (id_ex_q.nextpc_is_branch && (!id_ex_q.is_cond || (id_ex_q.is_cond && comparison_result_ex)));
-        nextpc_if = nextpc_is_branch_ex_cond ? ex_mem_d.alu_out : if_id_d.pcplus4;
+        nextpc_if = {{nextpc_is_branch_ex_cond ? ex_mem_d.alu_out : if_id_d.pcplus4}[31:2], 2'b0};
         
         // register file write
         unique case (mem_wb_q.rf_in_sel)

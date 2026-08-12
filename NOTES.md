@@ -9,6 +9,7 @@ Currently I'm going to implement the RV32I instruction set (excluding ecall/ebre
 
 ## Possible future changes
 - Change the next pc select (and other 1 bit signals) to not be enums, instead rename (e.g. is_nextpc_branch)
+- Instruction memory is not clocked. Apparently in a real scenario it would need to be clocked: to do this, just let the instruction memory act as part of the if/id pipeline register to transmit the instruction to the decode stage.
 - Introduce an adder to the decode stage to reduce the penalty for jumps by 1 cycle, although this would complicate hazards (especially if you tried to do this for conditional branches, since comparison circuitry should be in the execute stage).
 - Instead of flushing, add a `valid` control signal to each stage. Similarly, instead of setting `rd_sel` or `rs_sel` to 0 when you don't want to read/write from a register, have a register file write enable bit along with bits to indicate whether rs1 and rs2 are read / need reading.
 
@@ -268,9 +269,9 @@ Attempting to access any other CSR should raise an illegal instruction exception
 
 # Commands
 
-## Running
+## Running verilator
 
-`verilator_bin --binary -Wall hello.sv -LDFLAGS "-mconsole"`
+`verilator_bin --binary -Wall hello.sv`. To run the compiled file, execute its .exe in obj_dir.
 
 ## Generating a schematic: yosys
 
@@ -313,4 +314,14 @@ write_json data_path.json
 `
 
 `netlistsvg data_path.json -o data_path.svg`
+
+## Running assembly
+
+### Assembly to elf
+`riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -nostdlib -T link.ld -o test_program.elf test_program.s`
+
+`riscv64-unknown-elf-objdump -d test_program.elf`
+
+### elf to hex
+`riscv64-unknown-elf-objcopy -O verilog --verilog-data-width=4 test_program.elf test_program.hex`
 
