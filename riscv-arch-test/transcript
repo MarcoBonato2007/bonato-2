@@ -1,0 +1,17 @@
+# do /mnt/c/Users/marco/Documents/dev/bonato-2/riscv-arch-test/framework/src/act/riscv-arch-test.do /mnt/c/users/marco/docum
+# ents/dev/bonato-2/riscv-arch-test/work/sail-rv64-max/coverage/priv/SmVF/SmVF.tracelist /mnt/c/users/marco/documents/dev/bonato-2/risc
+# v-arch-test/work/sail-rv64-max/coverage/priv/SmVF/SmVF.ucdb /mnt/c/users/marco/documents/dev/bonato-2/riscv-arch-test/work/sail-rv64-
+# max/coverage/priv/SmVF/ucdb_work /mnt/c/Users/marco/Documents/dev/bonato-2/riscv-arch-test/framework/src/act/fcov /mnt/c/users/marco/
+# documents/dev/bonato-2/riscv-arch-test/coverpoints /mnt/c/users/marco/documents/dev/bonato-2/riscv-arch-test/work/sail-rv64-max /mnt/
+# c/users/marco/documents/dev/bonato-2/riscv-arch-test/tests/env {SMVF_COVERAGE}
+# /mnt/c/users/marco/docum
+# ** Error: can't read "2": no such variable
+# Error in macro /mnt/c/Users/marco/Documents/dev/bonato-2/riscv-arch-test/framework/src/act/riscv-arch-test.do line 16
+# can't read "2": no such variable
+#     while executing
+# "set UCDB ${2}"
+# invalid command name "ents/dev/bonato-2/riscv-arch-test/work/sail-rv64-max/coverage/priv/SmVF/SmVF.tracelist"
+# Break key hit
+# Break key hit
+# Break key hit
+# Break key hit

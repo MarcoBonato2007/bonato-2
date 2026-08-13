@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (must match a heading in CHANGELOG.md, e.g. 4.0.0). Defaults to latest in CHANGELOG.md."
+        required: false
+      draft:
+        description: "Create the release as a draft"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Serialize release creation so concurrent pushes can't race to create the same tag/release.
+concurrency:
+  group: create-release
+  cancel-in-progress: false
+
+jobs:
+  # Resolve the target version and short-circuit if its release already exists,
+  # so the whole workflow is idempotent (re-runs / repeated pushes are no-ops).
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          version="$REQUESTED_VERSION"
+          if [ -z "$version" ]; then
+            version=$(awk -F'[][]' '/^## \[/ { print $2; exit }' CHANGELOG.md)
+          fi
+          if [ -z "$version" ]; then
+            echo "::error::Could not determine release version from CHANGELOG.md."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check if release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "::notice::Release $RELEASE_VERSION already exists; skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: check
+    if: needs.check.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          version="$VERSION"
+          notes=$(awk -v ver="$version" '
+            $0 ~ "^## \\[" ver "\\]" { in_section = 1; next }
+            in_section && /^## / { exit }
+            in_section { print }
+          ' CHANGELOG.md)
+          # Strip leading/trailing blank lines.
+          notes=$(printf "%s" "$notes" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac)
+          if [ -z "$notes" ]; then
+            echo "::error::No release notes found for version '$version' in CHANGELOG.md. Add a '## [$version] - <date>' section before releasing."
+            exit 1
+          fi
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          printf "%s\n" "$notes" > "$notes_file"
+          echo "notes_file=$notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Set up mise
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4
+        with:
+          cache: false # Don't cache in release workflows
+
+      - run: git submodule update --init docs/docs-resources
+
+      - name: Build CTP
+        run: cd docs/ctp && make -j2
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_DRAFT: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.draft == 'true' }}
+          RELEASE_NOTES_FILE: ${{ steps.notes.outputs.notes_file }}
+        run: |
+          release_args=(
+            --title "$VERSION"
+            --notes-file "$RELEASE_NOTES_FILE"
+            --latest
+          )
+          if [ "$RELEASE_DRAFT" = "true" ]; then
+            release_args+=(--draft)
+          fi
+
+          gh release create "$VERSION" \
+            "${release_args[@]}" \
+            docs/ctp/build/ctp.pdf \
+            docs/ctp/build/ctp.html \
+            README.md

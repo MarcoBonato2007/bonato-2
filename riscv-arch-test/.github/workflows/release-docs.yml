@@ -1,0 +1,173 @@
+name: Build & Deploy Certification Documents
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - act4
+    paths:
+      - "docs/**"
+      - "generators/ctp/**"
+      - "testplans/**"
+      - "coverpoints/norm/**"
+      - "coverpoints/param/**"
+      - ".github/workflows/release-docs.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-ctp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4
+
+      - run: git submodule update --init docs/docs-resources
+
+      - name: Build CTP
+        run: cd docs/ctp && make docker-pull-latest && make -j6
+
+      - name: Upload CTP PDF
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ctp.pdf
+          path: docs/ctp/build/ctp.pdf
+
+      - name: Upload CTP HTML
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ctp.html
+          path: docs/ctp/build/ctp.html
+
+  build-crd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - run: git submodule update --init docs/docs-resources
+
+      - name: Build CRD
+        run: cd docs/crd && make docker-pull-latest && make -j6
+
+      - name: Upload CRD PDFs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: crd-pdf
+          path: docs/crd/build/*.pdf
+
+      - name: Upload CRD HTMLs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: crd-html
+          path: docs/crd/build/*.html
+
+  release:
+    needs: [build-ctp, build-crd]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download CTP PDF
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ctp.pdf
+          path: ./
+
+      - name: Download CTP HTML
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ctp.html
+          path: ./
+
+      - name: Download CRD PDFs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: crd-pdf
+          path: ./
+
+      - name: Download CRD HTMLs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: crd-html
+          path: ./
+
+      - name: Get release metadata
+        id: release_metadata
+        run: |
+          current_date=$(date +'%Y-%m-%d-%H-%M')
+          short_sha=${GITHUB_SHA::7}
+          echo "current_date=$current_date" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ github.event_name != 'workflow_dispatch' }}
+          CURRENT_DATE: ${{ steps.release_metadata.outputs.current_date }}
+          SHORT_SHA: ${{ steps.release_metadata.outputs.short_sha }}
+        run: |
+          tag_name="cert-docs-${CURRENT_DATE}-${SHORT_SHA}"
+          release_name="Certification Documents ${CURRENT_DATE}: ${SHORT_SHA}"
+          release_body="Automated release of the certification documents (CTP & CRD) built on ${CURRENT_DATE} from commit ${SHORT_SHA}."
+
+          release_args=(
+            --title "$release_name"
+            --notes "$release_body"
+            --latest
+          )
+          if [ "$PRERELEASE" = "true" ]; then
+            release_args+=(--prerelease)
+          fi
+
+          gh release create "$tag_name" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            "${release_args[@]}" \
+            ctp.pdf \
+            ctp.html \
+            rva23_crd.pdf \
+            rva23_crd.html
+
+  deploy-pages:
+    needs: [build-ctp, build-crd]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: docs/pages
+          persist-credentials: false
+
+      - name: Download CTP HTML
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ctp.html
+          path: docs/pages
+
+      - name: Download CRD HTMLs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: crd-html
+          path: docs/pages/crd
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: docs/pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
