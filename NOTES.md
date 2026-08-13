@@ -8,58 +8,103 @@ Currently I'm going to implement the RV32I instruction set (excluding ecall/ebre
 - Instruction and data memories will be separate (this simplified hazards)
 
 ## Possible future changes
-- Change the next pc select (and other 1 bit signals) to not be enums, instead rename (e.g. is_nextpc_branch)
 - Instruction memory is not clocked. Apparently in a real scenario it would need to be clocked: to do this, just let the instruction memory act as part of the if/id pipeline register to transmit the instruction to the decode stage.
 - Introduce an adder to the decode stage to reduce the penalty for jumps by 1 cycle, although this would complicate hazards (especially if you tried to do this for conditional branches, since comparison circuitry should be in the execute stage).
 - Instead of flushing, add a `valid` control signal to each stage. Similarly, instead of setting `rd_sel` or `rs_sel` to 0 when you don't want to read/write from a register, have a register file write enable bit along with bits to indicate whether rs1 and rs2 are read / need reading.
 
 # Pipeline
 
+## Future: Implementing Zicsr, ecall, ebreak, wfi and mret
+
+### Implementation notes
+
+Note: I still need to think about how to implement traps on exceptions/interrupts.
+
+Currently my idea is to place the CSR file at the decode stage, with two read ports and one write port (like a normal register file), and specialized hardware to deal with traps (since that requires writes to multiple specific CSR's). 
+
+As will be mentioned below, I could easily handle the hazard management for CSR instructions via usual methods (mainly forwarding, I doubt there's a need for stalling). Furthermore, since ECALL, EBREAK and MRET all branch (causing a flush), I don't need to worry much about instructions executed after those instructions (granted the CSR file is in the decode stage and has internal forwarding). So it actually seems like I won't need to invent/change a lot of logic to be able to manage hazards for CSR's.
+
+### List of new instructions
+
+Let's look at the instructions again.
+- CSRRW(I): reads the old value of the csr, zero extends it, writes it to rd, then writes rs1 to the csr. If rd=x0 then the csr shouldn't be read, but still written to.
+- CSRRS(I): reads the old value of the csr, zero extends it, writes it to rd, then any high bit in rs1 causes the corresponding bit in the csr to be set (if that bit is writeable). So basically you or mask with rs1.
+- CSRRC(I): like CSRRS, but clears instead of sets bits at positions where rs1 is 1.
+- In CSRRS/CSRRC, if rs1 is x0 then the csr is not written to. So this is the way to read a csr without any writes. Similarly, in the immediate versions, if uimm=0 then the csr is not written to.
+- WFI: Can start by implementing this as a NOP. Change if implementing timers or other interrupts.
+- MRET: Exits a trap. Sets pc to mepc, mstatus.MIE is set to mstatus.MPIE, then mstatus.MPIE is set to 1.
+- ECALL: Set mepc to the current pc (NOT pc + 4). Write code 11 (environment call from m-mode) to mcause, and set its interrupt bit to 0. Set mtval to 0. Set mstatus.MPIE to mstatus.MIE, and then set mstatus.MIE to 0. Set pc to mtvec.BASE (can only use direct mode). 
+- EBREAK: Set mepc to the current pc (NOT pc + 4). Write code 3 (environment call from m-mode) to mcause, and set its interrupt bit to 0. Set mtval to 0 (or the current pc). Set mstatus.MPIE to mstatus.MIE, and then set mstatus.MIE to 0. Set pc to mtvec.BASE (can only use direct mode). 
+
+### CSR instructions
+
+For the first 3 types of instructions, you need to:
+- Read a certain csr
+- Write its contents to rd
+- Then write to the csr using rs1.
+Assuming we have a separate csr file, the first two bullet points can simply be achieved by reading the csr at a stage before writeback, and then writing to the register file as usual (from the writeback stage). The third bullet point could be achieved by extending the writeback stage to also include csr writes (this seems like the intuitive choice). However, this does mean that I'll need to implement forwarding for CSR reads aswell (although the logic should be extremely similar to the current forwarding unit), and possibly also stalls (which doesn't seem like a problem). 
+
+A question is at what stage I should read the CSR. Decode is a natural choice, since you can then do a parallel CSR and register read.
+
+### MRET
+
+From what I see, this requires a branch and reading from two CSR's (mepc and mstatus), which doesn't seem at all like an issue in the current datapath. Here are the main takeaways:
+- Allow for two reads from the CSR file (this lines up nicely with ECALL and EBREAK)
+- Branch addresses are calculated from the ALU, so you would need to be able to make the ALU take a csr read value as an input (this will also probably be required for the csr instructions from the previous section). You could do that by just extending the alu selection signals.
+
+### ECALL and EBREAK
+
+These are almost the same, except for the exception code put into the mcause CSR. In general, you need to write to mcause, mtval, mstatus and mepc, while reading from mstatus and mtvec. You also need to flush the pipeline, which is not an issue. This is again two reads, but 4 writes. 
+
+Since this is an isolated case, I can hardcode the CSR file to be able to support specialised writes for mcause, mtval, mstatus, etc.
+
+
 ## Stages
 
 ### Fetch
 
 - Contains the instruction memory and the pc (which is fed directly into the instruction memory)
+- Currently the instruction memory is not clocked
 - Also contains a multiplexer to choose between PC+4 and alu output (taken from the execute stage) for the next pc value, which is fed into the write input for the pc.
-- Feeds an instruction and its pc value into the if/id pipeline register
+- Feeds an instruction, its pc value, and pc+4 into the if/id pipeline register
 
 ### Decode
 
-- Contains the instruction decoder, the register file, and forward/stall unit
-- The register file directly reads rs1 and rs2 from the decoded instruction. The write select and write data inputs come from the writeback stage later in the pipeline. Note that forwarding happens at the execute stage.
+- Contains the instruction decoder and the register file, and also has some connections to the hazard unit
+- The register file reads rs1 and rs2 from the decoded instruction. The rd and write_data inputs come from the writeback stage later in the pipeline. Note that forwarding happens at the execute stage.
 - The register file has internal forwarding: so when a register x is being written to with data y, any reads to x that happen simultaneously with the write will output y instead of the old value of x.
 - The instruction decoder automatically constructs and sign extends immediates
 - This section feeds the following signals to the id/ex pipeline register:
     * pc and pc+4
-    * rs1_sel
-    * rs1_out
-    * rs2_sel
-    * rs2_out
+    * rs1
+    * rs1_val
+    * rs2
+    * rs2_val
+    * rd
     * imm
     * alu_in1_sel (chooses between rs1 and PC for the first ALU input)
     * alu_in2_sel (chooses between rs2 and imm for the second ALU input)
     * alu_op
     * funct3
-    * is_cond (if set to 1, it will ignore an instruction if comparison between rs1 and rs2 fails)
-    * nextpc_sel (chooses between PC+4 and alu output (i.e. branch address) for the next alu value)
+    * is_cond (really should be renamed to is_branch, since it only affects the nextpc signal)
+    * nextpc_is_branch
     * mem_mode (read or write)
     * rf_in_sel (chooses between PC+4, alu output, and memory output for register file write data)
-    * rwrite (which register to write to)
 
 ### Execute
 
-- Contains multiplexers for the incoming rs1 and rs2 signals, connected to further pipeline stages for forwarding
+- Contains forwarding multiplexers for register value signals, connected to signals further in the pipeline
 - Contains two multiplexers to choose the first and second inputs to the ALU using the signals described previously
-- Contains the ALU and a parallel comparison unit (which compares rs1 and rs2). If is_cond is 1, and comparison fails, then control signals are zeroed out, causing the instruction to turn into a NOP.
+- Contains the ALU and a parallel comparison unit (which compares rs1 and rs2). If is_cond is 1, and comparison fails, then nextpc_is_branch is zeroed out.
 - This is the stage where branch addresses are calculated and branches/jumps are taken: branch addresses are calculated from the ALU, so there is a connection from the ALU back to the multiplexer in the fetch stage choosing the next pc value.
 - This section feeds the following signals to the ex/mem pipeline register:
     * pc+4
-    * alu output
+    * alu_out
     * rs2 (needed for memory accesses)
     * funct3
     * mem_mode
     * rf_in_sel
-    * rwrite
+    * rd
 
 ### Memory
 
@@ -70,7 +115,7 @@ Currently I'm going to implement the RV32I instruction set (excluding ecall/ebre
     * alu_out
     * mem_out
     * rf_in_sel
-    * rwrite
+    * rd
 
 ### Writeback
 
@@ -83,7 +128,7 @@ As a note, this currently only covers the hazards generated by instructions excl
 - Stall/flush the pipeline as much as needed to separate CSR and system instructions: this makes CSR instructions take 3-4 cycles, and is the lazy option.
 - Change the hazard unit and add forwarding, stalling, etc.
 
-### Pseudocode
+### Pseudocode (first draft)
 
 This is a very first draft of forwarding and stalling pseudocode. The flushing logic will likely be separate. Any kind of hazard detection is ignored when dealing with the zero register.
 
@@ -126,22 +171,17 @@ I will forward to multiplexers at the start of the execute stage (for the rs1 an
 - alu output (from the start of the memory stage)
 - alu output (from the start of the writeback stage)
 - memory output (from the start of the writeback stage)
+You can check the `forwarding.sv` file for the logic (it turned out to be suprisingly simple).
 
 ### Stalling
 
 From what I can see, the only case where this is required is on a load-use hazard: i.e. when you load a value from memory into a register, and then proceed to read from it. 
 While you could forward the memory out signal from the end of the memory stage to the start of the execute stage, this would really reduce the maximum clock speed. So instead you stall the pipeline by 1 cycle. 
-This happens when the reading instruction reaches the decode stage. You do this by:
-- Freezing the pc (by setting a write enable signal to 0)
-- Freezing the if/id and id/ex pipeline registers (again, using a write enable signal)
-- Then wait a clock cycle: now you zero out the ex register (using a reset signal), inserting a bubble.
-- Then you set all the signals back to normal: now when the reading instruction reaches the execute stage, the loading instruction is in the writeback stage, and can forward easily.
+This happens when the reading instruction reaches the decode stage. You do this by disabling the write enable for the if/id register, and setting the flush signal the id/ex register.
 
 ### Flushing
 
-This is required for taken branches and all jumps. Branch addresses and conditions are calculated in the execute stage. So when a branch/jump is detected, flushing is done by doing the following:
-- Waiting a clock cycle (to let the branch/jump instruction move out of the execute stage)
-- Zeroing out the if/id and id/ex pipeline registers using a reset signal
+This is required for taken branches and all jumps. Branch addresses and conditions are calculated in the execute stage. When a branch/jump is detected, you set the flush signals for both the if/id and id/ex pipeline registers, introducing a 2-cycle penalty.
 
 ### Layering
 
@@ -175,7 +215,7 @@ Is it possible to create more complicated situations where you try to stack haza
 - The source registers are called `rs1` and `rs2`, and the destination `rd`.
 - Immediates are always sign extended (except for the 5-bit immediates used in the CSR instructions)
 - The sign bit of immediates is always in bit 31
-- `NOP` is encoded as `ADDI x0, x0, 0`
+- `NOP` is encoded as `ADDI x0, x0, 0` by default
 - The funct3 and funct7 fields act like secondary opcodes to identify an instruction
 
 ## Encoding notes
@@ -202,7 +242,7 @@ Is it possible to create more complicated situations where you try to stack haza
 
 ## Extra instructions (Zicsr, machine level ISA, ecall, ebreak)
 
-I want to implement the Zicsr extension, with the CPU always running in machine mode. That introduces the following instructions (along with the standard ECALL and EBREAK):
+I may implement the Zicsr extension in future, with the CPU always running in machine mode. That introduces the following instructions (along with the standard ECALL and EBREAK):
 - CSRRW(I): reads the old value of the csr, zero extends it, writes it to rd, then writes rs1 to the csr. If rd=x0 then the csr shouldn't be read, but still written to.
 - CSRRS(I): reads the old value of the csr, zero extends it, writes it to rd, then any high bit in rs1 causes the corresponding bit in the csr to be set (if that bit is writeable). So basically you or mask with rs1.
 - CSRRC(I): like CSRRS, but clears instead of sets bits at positions where rs1 is 1.
@@ -214,9 +254,7 @@ I want to implement the Zicsr extension, with the CPU always running in machine 
 
 For instructions like ecall and ebreak, make sure that some behaviours are suppressed: e.g. minstret is not incremented, mie is unchanged, etc. (in future: find a list of suppressed behavior)
 
-## CSR's and registers (machine only)
-
-### CSR's
+## CSR's (machine only)
 There's a 12 bit encoding space for CSR's. The top two bits indicate whether the register is read/write (00, 01 or 10) or read-only (11).  
 
 - misa: identifies the ISA used. 
@@ -265,7 +303,6 @@ Attempting to access any other CSR should raise an illegal instruction exception
 
 - Upon reset, the mstatus fields MIE and MPRV are reset to 0. If little endian memory accesses are supported, the mstatus/mstatush field MBE is reset to 0. The pc is set to an implementation-defined reset vector. The mcause register is set to a value indicating the cause of the reset (can set to 0 if the implementation doesn't distinguish between reset conditions). 
 - Split the address space into main memory/IO. Allow byte/halfword/word accesses everywhere. Should I allow misaligned accesses? Disallow instruction fetch from IO regions.
-
 
 # Commands
 
