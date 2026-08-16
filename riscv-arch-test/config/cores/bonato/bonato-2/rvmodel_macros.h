@@ -7,7 +7,8 @@
 
 #define RVMODEL_DATA_SECTION
 
-#define STANDARD_SM_SUPPORTED
+// Do not advertise standard M-mode support for this no-CSR DUT.
+// This keeps RVTEST cleanup/boot from using ecall+CSR trap paths.
 
 ##### STARTUP #####
 
@@ -22,7 +23,7 @@
 // macro as blank to bypass the boot process.  If a nonconforming
 // M-mode is implemented, define this macro to set up the necessary
 // state in a fashion similar to RVTEST_BOOT_TO_MMODE.
-//#define RVMODEL_BOOT_TO_MMODE
+#define RVMODEL_BOOT_TO_MMODE
 
 # Address to use for load/store fault tests that should cause an access fault on the DUT.
 // This DUT does not generate access faults.  Comment out RVMODEL_ACCESS_FAULT_ADDRESS to prevent testing them.

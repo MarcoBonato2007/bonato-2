@@ -402,7 +402,7 @@
       "supported": false
     },
     "Zicsr": {
-      "supported": true
+      "supported": false
     },
     "Zifencei": {
       "supported": false
@@ -465,7 +465,7 @@
       "supported": false
     },
     "Zca": {
-      "supported": true
+      "supported": false
     },
     "Zcf": {
       "supported": false
@@ -607,18 +607,18 @@
     },
     "Ssnpm": {
       "supported": false,
-      "supported_pmlen_7": true,
-      "supported_pmlen_16": true
+      "supported_pmlen_7": false,
+      "supported_pmlen_16": false
     },
     "Smnpm": {
       "supported": false,
-      "supported_pmlen_7": true,
-      "supported_pmlen_16": true
+      "supported_pmlen_7": false,
+      "supported_pmlen_16": false
     },
     "Smmpm": {
       "supported": false,
-      "supported_pmlen_7": true,
-      "supported_pmlen_16": true
+      "supported_pmlen_7": false,
+      "supported_pmlen_16": false
     },
     "Svrsw60t59b": {
       "supported": false
@@ -628,7 +628,7 @@
     },
     "Svbare": {
       "supported": false,
-      "sfence_vma_illegal_if_svbare_only": true
+      "sfence_vma_illegal_if_svbare_only": false
     },
     "Sv32": {
       "supported": false
@@ -649,7 +649,7 @@
       "Ssstateen": {
         "supported": false
       },
-      "C_readonly_zero": true,
+      "C_readonly_zero": false,
       "SE0_readonly_zero": false
     },
     "Ssqosid": {
