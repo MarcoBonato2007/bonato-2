@@ -4,11 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 # UDB Architecture Configuration for the CV32E20, a configuration of the CVE2 project.
+
+# Note: this was originally copied from CV32E20, then minimized as much as possible
 ---
 $schema: config_schema.json#
 kind: architecture configuration
 type: fully configured
-name: bonato-2 (originally copied from CV32E20 for testing)
+name: bonato-2
 description: bonato-2 v1 architecture by Marco Bonato
 implemented_extensions:
   - { name: I, version: "= 2.1" }

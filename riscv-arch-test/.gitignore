@@ -35,9 +35,10 @@ coverpoints/
 __pycache__
 
 # Work directories
-work/
+work/*
+!work/bonato-2
 
-# vector tests
+# tests
 tests/rv32i/V*
 tests/rv32i/Zv*
 tests/rv64i/V*

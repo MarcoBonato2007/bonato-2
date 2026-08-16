@@ -6,11 +6,8 @@ module instr_mem (
     output logic [31:0] instr
 );
     // Associative array to simulate the entire 32-bit addressing space
+    // program is loaded in externally by a testbench
     logic [31:0] rom [logic [31:0]];
-
-    initial begin
-        $readmemh("program.hex", rom);
-    end
 
     // rom has 0, 1, 2, ... addresses but instructions have 0, 4, 8, ... addresses, so >> 2
     assign instr = rom.exists(addr >> 2) ? rom[addr >> 2] : 32'b0;
