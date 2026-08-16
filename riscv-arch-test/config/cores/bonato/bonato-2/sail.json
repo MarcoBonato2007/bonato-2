@@ -285,7 +285,7 @@
   },
   "extensions": {
     "M": {
-      "supported": true
+      "supported": false
     },
     "A": {
       "supported": false
@@ -405,7 +405,7 @@
       "supported": true
     },
     "Zifencei": {
-      "supported": true
+      "supported": false
     },
     "Zihintntl": {
       "supported": false
