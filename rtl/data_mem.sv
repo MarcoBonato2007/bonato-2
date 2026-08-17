@@ -16,26 +16,10 @@ module data_mem (
     logic sign_ext = !funct3[2];
     size_e size = size_e'(funct3[1:0]);
 
-    always_ff @(posedge clk) begin
-        /* verilator lint_off BLKSEQ */
-        if (mem_mode == MEM_WRITE) begin
-            unique case (size)
-                SIZE_BYTE: begin
-                    mem[addr] = write_data[7:0];
-                end
-                SIZE_HALF: begin
-                    mem[addr] = write_data[7:0];
-                    mem[addr+1] = write_data[15:8];
-                end
-                SIZE_WORD: begin
-                    mem[addr] = write_data[7:0];
-                    mem[addr+1] = write_data[15:8];
-                    mem[addr+2] = write_data[23:16];
-                    mem[addr+3] = write_data[31:24];
-                end
-                default: begin end
-            endcase
-        end else begin
+    // Memory reads are combinational, can be easily changed later
+    // Just remember to remove mem_out from the pipeline reg
+    always_comb begin
+        if (mem_mode == MEM_READ) begin
             logic [31:0] temp;
             unique case (size)
                 SIZE_BYTE: begin
@@ -57,7 +41,29 @@ module data_mem (
                     temp = 32'b0;
                 end
             endcase
-            mem_out <= temp;
+            mem_out = temp;
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        /* verilator lint_off BLKSEQ */
+        if (mem_mode == MEM_WRITE) begin
+            unique case (size)
+                SIZE_BYTE: begin
+                    mem[addr] = write_data[7:0];
+                end
+                SIZE_HALF: begin
+                    mem[addr] = write_data[7:0];
+                    mem[addr+1] = write_data[15:8];
+                end
+                SIZE_WORD: begin
+                    mem[addr] = write_data[7:0];
+                    mem[addr+1] = write_data[15:8];
+                    mem[addr+2] = write_data[23:16];
+                    mem[addr+3] = write_data[31:24];
+                end
+                default: begin end
+            endcase
         end
         /* verilator lint_on BLKSEQ */
     end

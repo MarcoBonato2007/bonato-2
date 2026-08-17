@@ -65,7 +65,7 @@ module data_path (
     assign ex_mem_d.pcplus4 = id_ex_q.pcplus4;
     assign ex_mem_d.mem_mode = id_ex_q.mem_mode;
     assign ex_mem_d.funct3 = id_ex_q.funct3;
-    assign ex_mem_d.rs2_val = id_ex_q.rs2_val;
+    assign ex_mem_d.rs2_val = rs2_val_forwarded_ex;
     assign ex_mem_d.rf_in_sel = id_ex_q.rf_in_sel;
     assign ex_mem_d.rd = id_ex_q.rd;
     assign mem_wb_d.pcplus4 = ex_mem_q.pcplus4;
