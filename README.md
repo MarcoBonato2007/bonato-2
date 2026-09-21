@@ -1,5 +1,7 @@
 # bonato-2
-Currently the v1 architecture (which only dealt with core, unprivileged, non-system instructions) is finished, and passes all tests. The v2 architecture (implementing Zicsr and the machine-level ISA) is a work in progress.
+Currently the v1 architecture (which only dealt with core, unprivileged, non-system instructions) is finished, and passes all tests. 
+
+The v2 architecture (implementing Zicsr and the machine-level ISA) is a work in progress (although I doubt it will be finished anytime soon).
 
 ## The v1 architecture
 
