@@ -108,22 +108,18 @@ This section considers implementing certain CSR's like mcycle or mtime.
 # List of CSR's (machine only)
 There's a 12 bit encoding space for CSR's. The top two bits indicate whether the register is read/write (00, 01 or 10) or read-only (11).  
 
-- misa 0x301: identifies the ISA used. 
-    * MXL field = 1 (read-only, top two bits)
-    * Extension field has a 1 in position 8 ("I") and nowhere else. 
-    * Because of this implementation, misa is essentially read-only, but silently ignores writes (without raising an exception).
-- mvendorid 0xF11: set to 0 (non-commercial implementation), read-only
-- marchid 0xF12: set to 0, read-only
-- mimpid 0xF13: essentially a version control number, can set to 1.0.0 initially, read-only. The format/layout can be decided freely.
-- mhartid 0xF14: set to 0 (there's only one core/thread)
-- mstatus 0x300, mstatush 0x310: Encodes the hart's current operating state. mstatush is the upper 32 bits. 
-    * SIE/SPIE/MPRV/MXR/SUM/SBE/UBE/TVM/TW/TSR/FS/VS/XS/SD fields should be read-only 0.
-    * The MIE field is interrupt enable (1) / disable (0). 
-    * The MPIE field holds the value of MIE prior to a trap
-    * MPP holds the previous privilege mode (hardcoded to M, ignore writes). Other xPP fields are read-only 0. 
-    * SXL/UXL fields don't exist
-    * MBE field should be hardcoded to 0 (little endian) and ignore writes
-    * SPELP/MPELP fields should be hardcoded to 0 and ignore writes
+- misa 0x301: identifies the ISA used. It is hardwired and ignores writes silently.
+    * MXL field = 01 (top two bits)
+    * Bit 8 is set to 1 (indicates the base ISA "I")
+- mvendorid 0xF11: hardwire to 0, read-only
+- marchid 0xF12: hardwire to 0, read-only
+- mimpid 0xF13: essentially a version control number, read-only. The format/layout can be decided freely. I'll opt to treat the 32 bits are 4 8-bit fields, so the version number is composed of four hexadecimal digits (e.g. 0x1000 could be the first version). 
+- mhartid 0xF14: hardwide to 0, read-only
+- mstatus 0x300, mstatush 0x310: Encodes the hart's current operating state.
+    * The MIE field (bit 3) is interrupt enable (1) / disable (0)
+    * The MPIE field (bit 7) holds the value of MIE prior to a trap
+    * MPP (bits 11 and 12) is hardwired to M (11), ignores writes
+    * All other bits are either read-only zero fields (SIE/SPIE/(!=M)PP/MPRV/MXR/SUM/MBE/SBE/UBE/TVM/TW/TSR/FS/VS/XS/SD/SDT), WPRI fields, or non-existent fields (SXL/UXL/SPELP/MPELP/NMIE/MDT/GVA/MPV). I'll treat all these bits as read-only zero (from the manual it's difficult to say whether some bits should be read-only zero or WARL, for simplicity i'll leave them as read-only zero).
 - mtvec 0x305: holds trap vector configuration. 
     * All traps into machine mode cause pc to be set to mtvec.BASE
     * The BASE field must be 4-byte aligned (note that the CSR doesn't contain the last two bits of BASE, those are zero filled when using BASE as an address)

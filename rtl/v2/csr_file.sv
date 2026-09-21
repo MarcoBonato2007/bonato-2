@@ -25,8 +25,11 @@ module csr_file (
 
     output logic [31:0] mepc // part of next pc selection signals
 );  
-    
 
+    // NOTE: should probably output things like interrupt enables/disables
+    // Need to take in an external interrupt wire too
+
+    // TODO: start a list of the different CSR's
 
     always_ff @(posedge clk) begin
         // when wb_valid=1, minstret increments (even if trap=1)
@@ -39,6 +42,7 @@ module csr_file (
             // Set mstatus.MIE to mstatus.MPIE, then set mstatus.MPIE to 1
         end else if (trap) begin
             // Set mstatus.MPIE to mstatus.MIE, and then set mstatus.MIE to 0
+            // set mtval to the correct value
         end else if (enabled) begin
             // give an illegal exception if accessing an unknown csr or writing to a read-only CSR
             // check conditions with rs1=x0 or imm=x0 (actually, check how you're inputting imm)
